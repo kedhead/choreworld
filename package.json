@@ -8,7 +8,7 @@
     "server:dev": "nodemon server/index.js",
     "client:dev": "cd client && npm run dev",
     "build": "cd client && npm install && npm run build",
-    "build:netlify": "cd client && npm install && npm run build",
+    "build:netlify": "cd client && npm install && npm run build && cd ..",
     "start": "node start.js",
     "start:server": "cd server && node index.js",
     "install:all": "npm install && cd client && npm install",
