@@ -1,12 +1,13 @@
 [build]
   # Build command - change to client dir and build
-  command = "cd client && npm install && npm run build"
+  command = "cd client && npm install --legacy-peer-deps && npm run build"
   
   # Publish directory - absolute path from repo root
   publish = "client/dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 # Redirect all routes to index.html for SPA routing
 [[redirects]]
