@@ -19,7 +19,7 @@ const {
 router.get('/dish-duty', authenticateToken, async (req, res) => {
     try {
         const duty = await getCurrentDishDuty();
-        res.json({ duty });
+        res.json({ duty: duty || null });
     } catch (error) {
         console.error('Get dish duty error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -38,7 +38,7 @@ router.get('/daily', authenticateToken, async (req, res) => {
         }
 
         const assignments = await getDailyAssignments(userId, date);
-        res.json({ assignments });
+        res.json({ assignments: assignments || [] });
     } catch (error) {
         console.error('Get daily assignments error:', error);
         res.status(500).json({ error: 'Server error' });

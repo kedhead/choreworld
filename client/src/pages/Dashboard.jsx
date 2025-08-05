@@ -33,7 +33,7 @@ const Dashboard = () => {
       ]);
       
       setAssignments(assignmentsRes.data.assignments || []);
-      setDishDuty(dishDutyRes.data.duty);
+      setDishDuty(dishDutyRes.data.duty || null);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load chores');
