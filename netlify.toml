@@ -1,12 +1,12 @@
 [build]
-  # Directory to build from
-  base = "client"
+  # Base directory - where to run build from
+  base = "client/"
   
-  # Build command
-  command = "npm install && npm run build"
+  # Build command - install deps and build
+  command = "npm ci && npm run build"
   
-  # Directory to publish (relative to base)
-  publish = "dist"
+  # Publish directory - relative to base
+  publish = "dist/"
 
 [build.environment]
   NODE_VERSION = "18"
