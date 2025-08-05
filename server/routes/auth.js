@@ -8,6 +8,8 @@ router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        console.log('Login attempt:', { username, passwordProvided: !!password });
+
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password required' });
         }
@@ -15,12 +17,18 @@ router.post('/login', async (req, res) => {
         // Find user
         const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
         
+        console.log('User found:', user ? { id: user.id, username: user.username, role: user.role } : 'No user found');
+        
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        console.log('Password hash from DB:', user.password_hash);
+
         // Check password
         const validPassword = await comparePassword(password, user.password_hash);
+        
+        console.log('Password validation result:', validPassword);
         
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -28,6 +36,8 @@ router.post('/login', async (req, res) => {
 
         // Generate token
         const token = generateToken(user);
+
+        console.log('Login successful for user:', user.username);
 
         res.json({
             message: 'Login successful',
@@ -117,6 +127,16 @@ router.get('/users', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Get users error:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Debug endpoint to check admin user (temporary)
+router.get('/debug/admin', async (req, res) => {
+    try {
+        const user = await db.get('SELECT username, password_hash, role, created_at FROM users WHERE username = ?', ['admin']);
+        res.json(user || { message: 'Admin user not found' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
