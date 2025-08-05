@@ -2,7 +2,7 @@
   "name": "choreworld",
   "version": "1.0.0",
   "description": "A fun chore tracking app for families",
-  "main": "server/index.js",
+  "main": "start.js",
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "server:dev": "nodemon server/index.js",
@@ -10,6 +10,7 @@
     "build": "cd client && npm install && npm run build",
     "build:netlify": "cd client && npm install && npm run build",
     "start": "node start.js",
+    "start:server": "cd server && node index.js",
     "install:all": "npm install && cd client && npm install",
     "postinstall": "cd server && npm install"
   },

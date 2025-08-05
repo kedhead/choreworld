@@ -1,2 +1,6 @@
-// Simple startup script for production deployment
-require('./server/index.js');
+// Production startup script for ChoreWorld
+console.log('🚀 Starting ChoreWorld server...');
+
+// Change to server directory and start the application
+process.chdir('./server');
+require('./index.js');

@@ -5,7 +5,7 @@ const cron = require('node-cron');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
 // Import routes
 const authRoutes = require('./routes/auth');
