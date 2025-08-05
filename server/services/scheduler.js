@@ -77,6 +77,9 @@ const assignDailyChores = async () => {
     }
 };
 
+// Manual dish duty order - configured by admin
+const DISH_DUTY_ORDER = ['Aubrey', 'Mackenzie', 'Zoey'];
+
 // Rotate dish duty weekly
 const rotateDishDuty = async () => {
     try {
@@ -86,9 +89,9 @@ const rotateDishDuty = async () => {
         const weekEndStr = formatDate(weekEnd);
 
         // Get all kids
-        const kids = await db.all('SELECT * FROM users WHERE role = ? ORDER BY id', ['kid']);
+        const allKids = await db.all('SELECT * FROM users WHERE role = ?', ['kid']);
         
-        if (kids.length === 0) {
+        if (allKids.length === 0) {
             console.log('No kids found for dish duty rotation');
             return;
         }
@@ -104,6 +107,29 @@ const rotateDishDuty = async () => {
             return;
         }
 
+        // Order kids according to the manual rotation order
+        const orderedKids = [];
+        
+        // First, add kids in the specified order
+        for (const name of DISH_DUTY_ORDER) {
+            const kid = allKids.find(k => k.display_name === name);
+            if (kid) {
+                orderedKids.push(kid);
+            }
+        }
+        
+        // Add any remaining kids not in the specified order (fallback)
+        for (const kid of allKids) {
+            if (!orderedKids.find(k => k.id === kid.id)) {
+                orderedKids.push(kid);
+            }
+        }
+
+        if (orderedKids.length === 0) {
+            console.log('No kids found matching the dish duty order configuration');
+            return;
+        }
+
         // Get the last assigned user to determine next in rotation
         const lastAssignment = await db.get(
             'SELECT * FROM dish_duty ORDER BY created_at DESC LIMIT 1'
@@ -112,14 +138,14 @@ const rotateDishDuty = async () => {
         let nextKidIndex = 0;
         
         if (lastAssignment) {
-            // Find the index of the last assigned kid
-            const lastKidIndex = kids.findIndex(kid => kid.id === lastAssignment.user_id);
+            // Find the index of the last assigned kid in our ordered list
+            const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
             if (lastKidIndex !== -1) {
-                nextKidIndex = (lastKidIndex + 1) % kids.length;
+                nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
             }
         }
 
-        const assignedKid = kids[nextKidIndex];
+        const assignedKid = orderedKids[nextKidIndex];
 
         // Deactivate all previous assignments
         await db.run('UPDATE dish_duty SET is_active = 0');
@@ -130,7 +156,7 @@ const rotateDishDuty = async () => {
             [assignedKid.id, weekStartStr, weekEndStr, 1]
         );
 
-        console.log(`Dish duty assigned to ${assignedKid.display_name} for week ${weekStartStr} - ${weekEndStr}`);
+        console.log(`Dish duty assigned to ${assignedKid.display_name} for week ${weekStartStr} - ${weekEndStr} (order: ${DISH_DUTY_ORDER.join(' → ')})`);
     } catch (error) {
         console.error('Error in rotateDishDuty:', error);
         throw error;
@@ -229,6 +255,25 @@ const completeAssignment = async (assignmentId, userId) => {
     }
 };
 
+// Get dish duty order configuration
+const getDishDutyOrder = () => {
+    return DISH_DUTY_ORDER;
+};
+
+// Update dish duty order (admin only)
+const updateDishDutyOrder = (newOrder) => {
+    if (!Array.isArray(newOrder) || newOrder.length === 0) {
+        throw new Error('Invalid order - must be a non-empty array');
+    }
+    
+    // Update the order (in a real app, this would be stored in database)
+    DISH_DUTY_ORDER.length = 0;
+    DISH_DUTY_ORDER.push(...newOrder);
+    
+    console.log(`Dish duty order updated to: ${DISH_DUTY_ORDER.join(' → ')}`);
+    return DISH_DUTY_ORDER;
+};
+
 module.exports = {
     assignDailyChores,
     rotateDishDuty,
@@ -237,5 +282,7 @@ module.exports = {
     completeAssignment,
     getWeekStart,
     getWeekEnd,
-    formatDate
+    formatDate,
+    getDishDutyOrder,
+    updateDishDutyOrder
 };

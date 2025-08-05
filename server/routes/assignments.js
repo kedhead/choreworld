@@ -10,7 +10,9 @@ const {
     rotateDishDuty,
     formatDate,
     getWeekStart,
-    getWeekEnd
+    getWeekEnd,
+    getDishDutyOrder,
+    updateDishDutyOrder
 } = require('../services/scheduler');
 
 // Get current dish duty assignment
@@ -171,6 +173,37 @@ router.get('/weeks', authenticateToken, async (req, res) => {
         res.json({ weeks: weeks.map(w => w.week_start) });
     } catch (error) {
         console.error('Get weeks error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get dish duty order configuration (admin only)
+router.get('/dish-duty/order', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const order = getDishDutyOrder();
+        res.json({ order });
+    } catch (error) {
+        console.error('Get dish duty order error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update dish duty order (admin only)
+router.put('/dish-duty/order', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { order } = req.body;
+        
+        if (!Array.isArray(order) || order.length === 0) {
+            return res.status(400).json({ error: 'Order must be a non-empty array' });
+        }
+
+        const updatedOrder = updateDishDutyOrder(order);
+        res.json({ 
+            message: 'Dish duty order updated successfully',
+            order: updatedOrder 
+        });
+    } catch (error) {
+        console.error('Update dish duty order error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

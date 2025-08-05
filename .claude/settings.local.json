@@ -12,7 +12,9 @@
       "Bash(git push:*)",
       "Bash(curl:*)",
       "Bash(git branch:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

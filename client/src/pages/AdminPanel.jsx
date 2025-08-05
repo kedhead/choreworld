@@ -23,6 +23,7 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('chores');
   const [chores, setChores] = useState([]);
   const [users, setUsers] = useState([]);
+  const [dishDutyOrder, setDishDutyOrder] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Form states
@@ -66,15 +67,17 @@ const AdminPanel = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [choresRes, usersRes] = await Promise.all([
+      const [choresRes, usersRes, dishDutyOrderRes] = await Promise.all([
         axios.get('/api/chores'),
-        axios.get('/api/auth/users')
+        axios.get('/api/auth/users'),
+        axios.get('/api/assignments/dish-duty/order')
       ]);
       
       console.log('Fetched users:', usersRes.data.users);
       
       setChores(choresRes.data.chores || []);
       setUsers(usersRes.data.users || []);
+      setDishDutyOrder(dishDutyOrderRes.data.order || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load admin data');
@@ -141,6 +144,24 @@ const AdminPanel = () => {
     }
   };
 
+  // Dish Duty Order Management
+  const handleUpdateDishDutyOrder = async (newOrder) => {
+    try {
+      await axios.put('/api/assignments/dish-duty/order', { order: newOrder });
+      toast.success('Dish duty order updated! 🍽️');
+      setDishDutyOrder(newOrder);
+    } catch (error) {
+      toast.error('Failed to update dish duty order');
+    }
+  };
+
+  const moveDishDutyUser = (fromIndex, toIndex) => {
+    const newOrder = [...dishDutyOrder];
+    const [movedUser] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedUser);
+    handleUpdateDishDutyOrder(newOrder);
+  };
+
   if (loading) {
     return <LoadingSpinner message="Loading admin panel..." />;
   }
@@ -148,6 +169,7 @@ const AdminPanel = () => {
   const tabs = [
     { id: 'chores', label: 'Manage Chores', icon: ListTodo, emoji: '📋' },
     { id: 'users', label: 'Manage Users', icon: Users, emoji: '👥' },
+    { id: 'dishes', label: 'Dish Duty Order', icon: Settings, emoji: '🍽️' },
     { id: 'stats', label: 'Statistics', icon: BarChart3, emoji: '📊' }
   ];
 
@@ -483,6 +505,149 @@ const AdminPanel = () => {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dish Duty Order Tab */}
+      {activeTab === 'dishes' && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Dish Duty Rotation Order</h2>
+                <p className="text-gray-600 mt-2">Configure the order for weekly dish duty assignments</p>
+              </div>
+              <div className="text-4xl">🍽️</div>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-blue-800 mb-2">Current Order:</h3>
+              <div className="flex items-center space-x-2 text-blue-700">
+                {dishDutyOrder.map((name, index) => (
+                  <div key={name} className="flex items-center">
+                    <span className="font-medium">{name}</span>
+                    {index < dishDutyOrder.length - 1 && (
+                      <span className="mx-2 text-blue-500">→</span>
+                    )}
+                  </div>
+                ))}
+                {dishDutyOrder.length === 0 && (
+                  <span className="text-blue-600 italic">No order configured</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Available Kids:</h3>
+                <div className="space-y-3">
+                  {users.filter(u => u.role === 'kid').map((user) => {
+                    const isInOrder = dishDutyOrder.includes(user.display_name);
+                    return (
+                      <div 
+                        key={user.id} 
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          isInOrder 
+                            ? 'border-green-300 bg-green-50' 
+                            : 'border-gray-200 bg-white hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                              {user.display_name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium">{user.display_name}</span>
+                          </div>
+                          {!isInOrder && (
+                            <button
+                              onClick={() => handleUpdateDishDutyOrder([...dishDutyOrder, user.display_name])}
+                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded-full transition-colors"
+                            >
+                              Add to Order
+                            </button>
+                          )}
+                          {isInOrder && (
+                            <span className="text-green-600 text-sm font-medium">✓ In Order</span>
+                          )}
+                        </div>
+                      </div>
+                    )})}
+                  
+                  {users.filter(u => u.role === 'kid').length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="text-4xl mb-2">👶</div>
+                      <p>No kids found. Create kid users first!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Current Rotation Order:</h3>
+                <div className="space-y-3">
+                  {dishDutyOrder.map((name, index) => (
+                    <div key={name} className="p-3 bg-white rounded-lg border-2 border-green-300">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <span className="font-medium">{name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {index > 0 && (
+                            <button
+                              onClick={() => moveDishDutyUser(index, index - 1)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-full transition-colors"
+                              title="Move Up"
+                            >
+                              ↑
+                            </button>
+                          )}
+                          {index < dishDutyOrder.length - 1 && (
+                            <button
+                              onClick={() => moveDishDutyUser(index, index + 1)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-full transition-colors"
+                              title="Move Down"
+                            >
+                              ↓
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleUpdateDishDutyOrder(dishDutyOrder.filter(n => n !== name))}
+                            className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full transition-colors"
+                            title="Remove"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {dishDutyOrder.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                      <div className="text-4xl mb-2">🍽️</div>
+                      <p>No rotation order set</p>
+                      <p className="text-sm">Add kids to create the order</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {dishDutyOrder.length > 0 && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-semibold text-green-800 mb-2">How it works:</h4>
+                <ul className="text-sm text-green-700 space-y-1">
+                  <li>• Every Monday at 12:01 AM, the system automatically assigns dish duty to the next person in order</li>
+                  <li>• The rotation follows this exact order: <strong>{dishDutyOrder.join(' → ')}</strong></li>
+                  <li>• After the last person, it cycles back to the first person</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}
