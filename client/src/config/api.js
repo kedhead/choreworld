@@ -3,8 +3,8 @@ const API_CONFIG = {
   // Development API URL (local server)
   development: 'http://localhost:3001',
   
-  // Production API URL (replace with your actual backend URL after deployment)
-  production: import.meta.env.VITE_API_URL || 'https://choreworld-api.onrender.com',
+  // Production API URL - Your deployed backend on Render
+  production: import.meta.env.VITE_API_URL || 'https://choreworld.onrender.com',
   
   // Current environment
   environment: import.meta.env.MODE || 'development'
