@@ -3,7 +3,7 @@
   base = "client"
   
   # Build command
-  command = "npm run build"
+  command = "npm install && npm run build"
   
   # Directory to publish (relative to base)
   publish = "dist"
