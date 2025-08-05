@@ -12,9 +12,11 @@ import {
   X,
   UserPlus,
   Settings,
-  BarChart3
+  BarChart3,
+  Lock
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PasswordChangeModal from '../components/PasswordChangeModal';
 
 const AdminPanel = () => {
   const { register } = useAuth();
@@ -27,6 +29,8 @@ const AdminPanel = () => {
   const [editingChore, setEditingChore] = useState(null);
   const [showNewChoreForm, setShowNewChoreForm] = useState(false);
   const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordChangeUser, setPasswordChangeUser] = useState(null);
   
   const [newChore, setNewChore] = useState({
     name: '',
@@ -453,7 +457,7 @@ const AdminPanel = () => {
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-3">
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                     user.role === 'admin' 
                       ? 'bg-purple-100 text-purple-800' 
@@ -465,6 +469,18 @@ const AdminPanel = () => {
                     Joined: {new Date(user.created_at).toLocaleDateString()}
                   </span>
                 </div>
+                
+                <button
+                  onClick={() => {
+                    setPasswordChangeUser(user);
+                    setShowPasswordModal(true);
+                  }}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Change Password</span>
+                  <span>🔐</span>
+                </button>
               </div>
             ))}
           </div>
@@ -505,6 +521,17 @@ const AdminPanel = () => {
           </div>
         </div>
       )}
+
+      {/* Password Change Modal */}
+      <PasswordChangeModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPasswordChangeUser(null);
+        }}
+        targetUser={passwordChangeUser}
+        isAdmin={true}
+      />
     </div>
   );
 };

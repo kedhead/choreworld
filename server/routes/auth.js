@@ -120,4 +120,57 @@ router.get('/users', authenticateToken, async (req, res) => {
     }
 });
 
+// Change password
+router.put('/change-password', authenticateToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword, targetUserId } = req.body;
+        const requestingUserId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'New password must be at least 6 characters' });
+        }
+
+        // Determine which user's password to change
+        let userId = requestingUserId;
+        if (targetUserId && isAdmin) {
+            // Admin can change any user's password
+            userId = targetUserId;
+        } else if (targetUserId && !isAdmin) {
+            return res.status(403).json({ error: 'Only admins can change other users passwords' });
+        }
+
+        // Get the target user
+        const targetUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!targetUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // If changing own password, verify current password
+        if (userId === requestingUserId && !isAdmin) {
+            if (!currentPassword) {
+                return res.status(400).json({ error: 'Current password is required' });
+            }
+            
+            const validCurrentPassword = await comparePassword(currentPassword, targetUser.password_hash);
+            if (!validCurrentPassword) {
+                return res.status(401).json({ error: 'Current password is incorrect' });
+            }
+        }
+
+        // Hash new password and update
+        const newPasswordHash = await hashPassword(newPassword);
+        await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newPasswordHash, userId]);
+
+        res.json({ 
+            message: isAdmin && targetUserId ? 
+                `Password updated for ${targetUser.display_name}` : 
+                'Password updated successfully' 
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 module.exports = router;

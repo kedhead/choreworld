@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -7,12 +7,15 @@ import {
   BarChart3, 
   LogOut, 
   User,
-  Sparkles 
+  Sparkles,
+  Lock 
 } from 'lucide-react';
+import PasswordChangeModal from './PasswordChangeModal';
 
 const Navbar = () => {
   const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
@@ -73,6 +76,15 @@ const Navbar = () => {
             </div>
             
             <button
+              onClick={() => setShowPasswordModal(true)}
+              className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors duration-200 hover:bg-blue-50 px-3 py-2 rounded-lg"
+              title="Change Password"
+            >
+              <Lock className="w-4 h-4" />
+              <span className="hidden sm:block">Password</span>
+            </button>
+            
+            <button
               onClick={logout}
               className="flex items-center space-x-2 text-gray-600 hover:text-red-600 transition-colors duration-200 hover:bg-red-50 px-3 py-2 rounded-lg"
             >
@@ -106,6 +118,14 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      <PasswordChangeModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        targetUser={null}
+        isAdmin={false}
+      />
     </nav>
   );
 };
