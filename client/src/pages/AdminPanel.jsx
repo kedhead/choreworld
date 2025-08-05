@@ -45,12 +45,29 @@ const AdminPanel = () => {
     fetchData();
   }, []);
 
+  // Re-fetch data when component becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [choresRes, usersRes] = await Promise.all([
         axios.get('/api/chores'),
         axios.get('/api/auth/users')
       ]);
+      
+      console.log('Fetched users:', usersRes.data.users);
       
       setChores(choresRes.data.chores || []);
       setUsers(usersRes.data.users || []);
@@ -103,13 +120,19 @@ const AdminPanel = () => {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
+      console.log('Creating user:', newUser);
       const success = await register(newUser);
+      console.log('User creation result:', success);
       if (success) {
         setNewUser({ username: '', password: '', display_name: '', role: 'kid' });
         setShowNewUserForm(false);
-        fetchData();
+        // Wait a moment before fetching to ensure the user is created
+        setTimeout(() => {
+          fetchData();
+        }, 500);
       }
     } catch (error) {
+      console.error('User creation error:', error);
       toast.error('Failed to create user');
     }
   };
@@ -417,6 +440,7 @@ const AdminPanel = () => {
 
           {/* Users List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {console.log('Current users in state:', users)}
             {users.map((user) => (
               <div key={user.id} className="card">
                 <div className="flex items-center space-x-3 mb-4">
