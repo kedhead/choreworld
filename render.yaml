@@ -3,11 +3,13 @@ services:
     name: choreworld-api
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install --production
+    startCommand: node server/index.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        generateValue: true
+        value: choreworld-super-secret-production-key-2025
+      - key: PORT
+        value: 10000
