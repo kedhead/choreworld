@@ -79,6 +79,10 @@ app.listen(PORT, () => {
     console.log(`🎉 ChoreWorld server running on port ${PORT}`);
     console.log(`📅 Daily chore scheduler active (runs at 1:00 AM)`);
     console.log(`🍽️  Dish duty rotation active (runs Mondays at 12:01 AM)`);
+    
+    // Ensure admin password is correct on startup
+    const db = require('./database/database');
+    db.fixAdminPassword();
 });
 
 // Graceful shutdown

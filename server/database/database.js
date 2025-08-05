@@ -42,9 +42,27 @@ class Database {
                     });
                 }
             });
+            
+            // Ensure admin user has correct password hash
+            this.fixAdminPassword();
         });
         
         console.log('Database initialized with schema');
+    }
+    
+    fixAdminPassword() {
+        const correctHash = '$2a$10$4GoOEU8v2MDFSw0NN9aGRuaXDosuMBmr4hPS0w8r350Y5URf5XEHC';
+        this.db.run(
+            'UPDATE users SET password_hash = ? WHERE username = ? AND role = ?',
+            [correctHash, 'admin', 'admin'],
+            (err) => {
+                if (err) {
+                    console.error('Error updating admin password:', err);
+                } else {
+                    console.log('Admin password hash updated');
+                }
+            }
+        );
     }
 
     // Helper method to run queries with promises

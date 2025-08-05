@@ -63,7 +63,7 @@ CREATE TABLE completion_history (
 
 -- Insert default admin user (password: admin123)
 INSERT INTO users (username, password_hash, role, display_name) VALUES 
-('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'Parent');
+('admin', '$2a$10$4GoOEU8v2MDFSw0NN9aGRuaXDosuMBmr4hPS0w8r350Y5URf5XEHC', 'admin', 'Parent');
 
 -- Insert default chores
 INSERT INTO chores (name, description, points) VALUES 
