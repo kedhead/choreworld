@@ -2,8 +2,12 @@ const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 
-// Use persistent storage path for Render or fallback to local
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'choreworld.db');
+// Use persistent storage path for Railway or fallback to local
+// Railway provides persistent storage at /app/data or we can use a custom path
+const DB_PATH = process.env.DATABASE_PATH || 
+                process.env.RAILWAY_VOLUME_MOUNT_PATH ? 
+                path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'choreworld.db') :
+                path.join(__dirname, 'choreworld.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 class Database {
