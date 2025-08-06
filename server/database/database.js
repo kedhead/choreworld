@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'choreworld.db');
+// Use persistent storage path for Render or fallback to local
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'choreworld.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 class Database {
@@ -13,22 +14,30 @@ class Database {
 
     init() {
         const dbExists = fs.existsSync(DB_PATH);
+        console.log(`🗄️  Database file exists: ${dbExists}`);
+        console.log(`🗄️  Database path: ${DB_PATH}`);
         
         this.db = new sqlite3.Database(DB_PATH, (err) => {
             if (err) {
-                console.error('Error opening database:', err);
+                console.error('❌ Error opening database:', err);
                 return;
             }
-            console.log('Connected to SQLite database');
+            console.log('✅ Connected to SQLite database');
         });
 
         // Create tables if database is new
         if (!dbExists) {
+            console.log('🏗️  Creating new database schema...');
             this.createTables();
+        } else {
+            console.log('📊 Using existing database');
+            // Still fix admin password in case it needs updating
+            this.fixAdminPassword();
         }
     }
 
     createTables() {
+        console.log('⚠️  WARNING: Database file missing! Creating fresh database...');
         const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
         const statements = schema.split(';').filter(stmt => stmt.trim());
         
@@ -37,7 +46,7 @@ class Database {
                 if (statement.trim()) {
                     this.db.run(statement, (err) => {
                         if (err) {
-                            console.error('Error creating table:', err);
+                            console.error('❌ Error creating table:', err);
                         }
                     });
                 }
@@ -47,7 +56,7 @@ class Database {
             this.fixAdminPassword();
         });
         
-        console.log('Database initialized with schema');
+        console.log('✅ Database initialized with fresh schema');
     }
     
     fixAdminPassword() {
@@ -100,6 +109,28 @@ class Database {
                 else resolve();
             });
         });
+    }
+
+    // Debug method to check database stats
+    async getStats() {
+        try {
+            const users = await this.all('SELECT COUNT(*) as count FROM users');
+            const chores = await this.all('SELECT COUNT(*) as count FROM chores');
+            const assignments = await this.all('SELECT COUNT(*) as count FROM daily_assignments');
+            const dishDuty = await this.all('SELECT COUNT(*) as count FROM dish_duty');
+            
+            return {
+                users: users[0].count,
+                chores: chores[0].count,
+                daily_assignments: assignments[0].count,
+                dish_duty: dishDuty[0].count,
+                db_path: DB_PATH,
+                db_exists: fs.existsSync(DB_PATH)
+            };
+        } catch (error) {
+            console.error('Error getting database stats:', error);
+            return { error: error.message };
+        }
     }
 }
 

@@ -47,6 +47,22 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Debug endpoint for database stats
+app.get('/api/debug/db-stats', async (req, res) => {
+    try {
+        const db = require('./database/database');
+        const stats = await db.getStats();
+        res.json({
+            timestamp: new Date().toISOString(),
+            database_stats: stats,
+            process_uptime: process.uptime(),
+            process_pid: process.pid
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
