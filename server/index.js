@@ -110,9 +110,14 @@ app.listen(PORT, () => {
     console.log(`📅 Daily chore scheduler active (runs at 1:00 AM)`);
     console.log(`🍽️  Dish duty rotation active (runs Mondays at 12:01 AM)`);
     
-    // Ensure admin password is correct on startup
+    // Ensure admin password is correct and restore users on startup
     const db = require('./database/database');
     db.fixAdminPassword();
+    
+    // Always ensure essential users exist on startup
+    setTimeout(() => {
+        db.restoreEssentialUsers();
+    }, 2000); // Wait 2 seconds for database to be fully initialized
 });
 
 // Graceful shutdown
