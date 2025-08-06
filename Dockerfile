@@ -4,20 +4,22 @@ FROM node:18-alpine
 # Set working directory to app root
 WORKDIR /app
 
-# Copy package files
+# Copy root package.json first
+COPY package.json ./
+
+# Copy all package files
 COPY server/package*.json ./server/
 COPY client/package*.json ./client/
+
+# Copy source code
+COPY server/ ./server/
+COPY client/ ./client/
 
 # Install server dependencies
 RUN cd server && npm install
 
 # Install client dependencies and build
-RUN cd client && npm install
-COPY client/ ./client/
-RUN cd client && npm run build
-
-# Copy server source code
-COPY server/ ./server/
+RUN cd client && npm install && npm run build
 
 # Create data directory for persistent database storage
 RUN mkdir -p /app/data
