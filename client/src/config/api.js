@@ -3,7 +3,7 @@ const API_CONFIG = {
   // Development API URL (local server)
   development: 'http://localhost:3001',
   
-  // Production API URL - Your deployed backend on Railway
+  // Production API URL - Railway backend for projectepoch.org frontend
   production: import.meta.env.VITE_API_URL || 'https://web-production-e1fae.up.railway.app',
   
   // Current environment
