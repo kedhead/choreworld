@@ -3,8 +3,8 @@ const API_CONFIG = {
   // Development API URL (local server)
   development: 'http://localhost:3001',
   
-  // Production API URL - Your deployed backend on Render
-  production: import.meta.env.VITE_API_URL || 'https://choreworld.onrender.com',
+  // Production API URL - Your deployed backend on Railway
+  production: import.meta.env.VITE_API_URL || 'https://web-production-e1fae.up.railway.app',
   
   // Current environment
   environment: import.meta.env.MODE || 'development'

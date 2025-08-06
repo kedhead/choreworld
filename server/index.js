@@ -22,7 +22,8 @@ const corsOptions = {
     'http://localhost:3000', 
     'https://projectepoch.org',
     'https://choreworld.netlify.app',
-    'https://choreworld-frontend.netlify.app'
+    'https://choreworld-frontend.netlify.app',
+    'https://web-production-e1fae.up.railway.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
