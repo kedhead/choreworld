@@ -56,18 +56,30 @@ const assignDailyChores = async () => {
             return;
         }
 
-        // Assign random chores to each kid
-        for (const kid of kids) {
-            // Get a random chore
-            const randomChore = chores[Math.floor(Math.random() * chores.length)];
+        // Shuffle chores and assign unique chores to each kid
+        const shuffledChores = [...chores].sort(() => Math.random() - 0.5);
+        const assignedChores = [];
+        
+        for (let i = 0; i < kids.length; i++) {
+            const kid = kids[i];
+            
+            // If we have more kids than chores, cycle through chores
+            const choreIndex = i % shuffledChores.length;
+            let assignedChore = shuffledChores[choreIndex];
+            
+            // If we're cycling and this chore was already assigned today, try to find an unassigned one
+            if (assignedChores.includes(assignedChore.id) && shuffledChores.length > assignedChores.length) {
+                assignedChore = shuffledChores.find(chore => !assignedChores.includes(chore.id)) || assignedChore;
+            }
             
             // Assign the chore
             await db.run(
                 'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned) VALUES (?, ?, ?, ?)',
-                [kid.id, randomChore.id, today, randomChore.points]
+                [kid.id, assignedChore.id, today, assignedChore.points]
             );
             
-            console.log(`Assigned "${randomChore.name}" to ${kid.display_name} for ${today}`);
+            assignedChores.push(assignedChore.id);
+            console.log(`Assigned "${assignedChore.name}" to ${kid.display_name} for ${today}`);
         }
 
         console.log(`Daily chores assigned successfully for ${today}`);
