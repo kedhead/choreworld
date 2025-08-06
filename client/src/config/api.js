@@ -20,5 +20,7 @@ export const API_BASE_URL = getApiUrl();
 
 console.log('🔗 API Configuration:', {
   environment: API_CONFIG.environment,
-  apiUrl: API_BASE_URL
+  apiUrl: API_BASE_URL,
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  timestamp: new Date().toISOString()
 });
