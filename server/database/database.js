@@ -114,18 +114,31 @@ class Database {
     }
     
     fixAdminPassword() {
-        const correctHash = '$2a$10$4GoOEU8v2MDFSw0NN9aGRuaXDosuMBmr4hPS0w8r350Y5URf5XEHC';
-        this.db.run(
-            'UPDATE users SET password_hash = ? WHERE username = ? AND role = ?',
-            [correctHash, 'admin', 'admin'],
-            (err) => {
-                if (err) {
-                    console.error('Error updating admin password:', err);
-                } else {
-                    console.log('Admin password hash updated');
-                }
+        // Only fix admin password if it doesn't exist (for fresh database creation)
+        this.db.get('SELECT password_hash FROM users WHERE username = ? AND role = ?', ['admin', 'admin'], (err, row) => {
+            if (err) {
+                console.error('Error checking admin password:', err);
+                return;
             }
-        );
+            
+            // Only set default password if admin user doesn't exist or has no password
+            if (!row || !row.password_hash) {
+                const correctHash = '$2a$10$4GoOEU8v2MDFSw0NN9aGRuaXDosuMBmr4hPS0w8r350Y5URf5XEHC';
+                this.db.run(
+                    'UPDATE users SET password_hash = ? WHERE username = ? AND role = ?',
+                    [correctHash, 'admin', 'admin'],
+                    (err) => {
+                        if (err) {
+                            console.error('Error updating admin password:', err);
+                        } else {
+                            console.log('🔧 Admin password initialized to default (admin123)');
+                        }
+                    }
+                );
+            } else {
+                console.log('✅ Admin password exists - keeping current password');
+            }
+        });
     }
 
     // Helper method to run queries with promises
