@@ -4,11 +4,27 @@ const path = require('path');
 
 // Use persistent storage path for Railway or fallback to local
 // Railway provides persistent storage at /app/data or we can use a custom path
-const DB_PATH = process.env.DATABASE_PATH || 
-                process.env.RAILWAY_VOLUME_MOUNT_PATH ? 
-                path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'choreworld.db') :
-                path.join(__dirname, 'choreworld.db');
+const getDbPath = () => {
+    if (process.env.DATABASE_PATH) {
+        return process.env.DATABASE_PATH;
+    }
+    
+    if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+        return path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'choreworld.db');
+    }
+    
+    // Default fallback
+    return path.join(__dirname, 'choreworld.db');
+};
+
+const DB_PATH = getDbPath();
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
+
+console.log('🗄️  Database configuration:');
+console.log('   - DATABASE_PATH env:', process.env.DATABASE_PATH);
+console.log('   - RAILWAY_VOLUME_MOUNT_PATH env:', process.env.RAILWAY_VOLUME_MOUNT_PATH);
+console.log('   - Final DB_PATH:', DB_PATH);
+console.log('   - __dirname:', __dirname);
 
 class Database {
     constructor() {
