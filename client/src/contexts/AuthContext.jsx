@@ -22,6 +22,30 @@ export const AuthProvider = ({ children }) => {
     // Configure axios base URL
     axios.defaults.baseURL = API_BASE_URL;
     
+    // Add request interceptor for better error handling
+    axios.interceptors.request.use(
+      (config) => {
+        // Add timeout for Railway cold starts
+        config.timeout = 30000; // 30 seconds
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Add response interceptor for Railway connection issues
+    axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.code === 'ERR_NETWORK' || error.code === 'ERR_FAILED') {
+          console.log('🔄 Railway may be cold starting, retrying...');
+          // Wait a moment and retry once
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return axios.request(error.config);
+        }
+        return Promise.reject(error);
+      }
+    );
+    
     const token = localStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
