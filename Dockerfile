@@ -1,22 +1,22 @@
 # Use Node.js LTS version
 FROM node:18-alpine
 
-# Set working directory
-WORKDIR /app
+# Set working directory to server directory
+WORKDIR /app/server
 
-# Install dependencies for client
-COPY client/package*.json ./client/
-RUN cd client && npm install
+# Copy server package files first
+COPY server/package*.json ./
+RUN npm install
 
-# Install dependencies for server
-COPY server/package*.json ./server/
-RUN cd server && npm install
+# Copy client package files and build
+COPY client/package*.json ../client/
+RUN cd ../client && npm install
 
-# Copy source code
-COPY . .
+# Copy all source code
+COPY . ..
 
 # Build client
-RUN cd client && npm run build
+RUN cd ../client && npm run build
 
 # Create data directory for persistent database storage
 RUN mkdir -p /app/data
@@ -27,5 +27,5 @@ ENV DATABASE_PATH=/app/data/choreworld.db
 # Expose port
 EXPOSE 3000
 
-# Start server
-CMD ["sh", "-c", "cd server && npm start"]
+# Start server directly
+CMD ["npm", "start"]
