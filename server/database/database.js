@@ -54,9 +54,43 @@ class Database {
             
             // Ensure admin user has correct password hash
             this.fixAdminPassword();
+            
+            // Auto-restore essential users when database resets
+            this.restoreEssentialUsers();
         });
         
         console.log('✅ Database initialized with fresh schema');
+    }
+
+    // Restore essential users that should always exist
+    restoreEssentialUsers() {
+        console.log('🔄 Auto-restoring essential users due to database reset...');
+        
+        // Essential users to restore (using default passwords)
+        const essentialUsers = [
+            { username: 'aubrey', password: 'kid123', display_name: 'Aubrey', role: 'kid' },
+            { username: 'mackenzie', password: 'kid123', display_name: 'Mackenzie', role: 'kid' },
+            { username: 'zoey', password: 'kid123', display_name: 'Zoey', role: 'kid' }
+        ];
+
+        const bcrypt = require('bcryptjs');
+        
+        essentialUsers.forEach(async (userData) => {
+            try {
+                // Check if user already exists
+                const existingUser = await this.get('SELECT id FROM users WHERE username = ?', [userData.username]);
+                if (!existingUser) {
+                    const hashedPassword = await bcrypt.hash(userData.password, 10);
+                    await this.run(
+                        'INSERT INTO users (username, password_hash, role, display_name) VALUES (?, ?, ?, ?)',
+                        [userData.username, hashedPassword, userData.role, userData.display_name]
+                    );
+                    console.log(`✅ Restored user: ${userData.display_name}`);
+                }
+            } catch (error) {
+                console.error(`❌ Failed to restore user ${userData.display_name}:`, error);
+            }
+        });
     }
     
     fixAdminPassword() {

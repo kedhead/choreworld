@@ -63,6 +63,20 @@ app.get('/api/debug/db-stats', async (req, res) => {
     }
 });
 
+// Emergency restore users endpoint (admin only)
+app.post('/api/debug/restore-users', async (req, res) => {
+    try {
+        const db = require('./database/database');
+        await db.restoreEssentialUsers();
+        res.json({ 
+            message: 'Essential users restored successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
