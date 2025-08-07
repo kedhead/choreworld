@@ -13,7 +13,7 @@ const BonusChores = ({ onCompleteBonus }) => {
   const fetchBonusChores = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/assignments/bonus/available`, {
+      const response = await fetch('/api/assignments/bonus/available', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -37,7 +37,7 @@ const BonusChores = ({ onCompleteBonus }) => {
     try {
       setCompleting(choreId);
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/assignments/bonus/complete`, {
+      const response = await fetch('/api/assignments/bonus/complete', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

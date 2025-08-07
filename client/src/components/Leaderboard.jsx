@@ -12,7 +12,7 @@ const Leaderboard = ({ className = "" }) => {
   const fetchLeaderboard = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/assignments/leaderboard`, {
+      const response = await fetch('/api/assignments/leaderboard', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

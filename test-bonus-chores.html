@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Bonus Chores</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .bonus-chore { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>ChoreWorld Bonus Chores Test</h1>
+    <p>This page tests the bonus chores functionality locally.</p>
+    
+    <div id="status">Loading...</div>
+    
+    <h2>Available Bonus Chores:</h2>
+    <div id="bonusChores">Loading bonus chores...</div>
+
+    <script>
+        // Test the bonus chores endpoint
+        async function testBonusChores() {
+            const statusDiv = document.getElementById('status');
+            const bonusChoresDiv = document.getElementById('bonusChores');
+            
+            try {
+                // First, try to login as admin to get a token
+                const loginResponse = await fetch('http://localhost:10000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error('Login failed');
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.token;
+                
+                statusDiv.innerHTML = '<div class="success">✅ Login successful</div>';
+                
+                // Now test the bonus chores endpoint
+                const bonusResponse = await fetch('http://localhost:10000/api/assignments/bonus/available', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!bonusResponse.ok) {
+                    throw new Error(`Bonus chores request failed: ${bonusResponse.status}`);
+                }
+                
+                const bonusData = await bonusResponse.json();
+                
+                if (bonusData.chores && bonusData.chores.length > 0) {
+                    statusDiv.innerHTML += '<div class="success">✅ Bonus chores loaded successfully</div>';
+                    
+                    bonusChoresDiv.innerHTML = '';
+                    bonusData.chores.forEach(chore => {
+                        const choreDiv = document.createElement('div');
+                        choreDiv.className = 'bonus-chore';
+                        choreDiv.innerHTML = `
+                            <h3>${chore.name}</h3>
+                            <p><strong>Points:</strong> ${chore.points} (${chore.points * 2} XP)</p>
+                            <p><strong>Description:</strong> ${chore.description}</p>
+                        `;
+                        bonusChoresDiv.appendChild(choreDiv);
+                    });
+                } else {
+                    statusDiv.innerHTML += '<div class="error">❌ No bonus chores found</div>';
+                    bonusChoresDiv.innerHTML = '<p>No bonus chores available</p>';
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                bonusChoresDiv.innerHTML = '<p>Failed to load bonus chores</p>';
+            }
+        }
+        
+        // Run the test when page loads
+        testBonusChores();
+    </script>
+</body>
+</html>
