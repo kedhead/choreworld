@@ -1,1 +1,5 @@
-/*    /index.html   200
+# API proxy to Railway (must be first!)
+/api/* https://web-production-e1fae.up.railway.app/api/:splat 200
+
+# SPA routing fallback  
+/* /index.html 200
