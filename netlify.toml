@@ -9,15 +9,15 @@
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
 
-# Redirect all routes to index.html for SPA routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# API proxy to your Railway backend
+# API proxy to your Railway backend (must come first!)
 [[redirects]]
   from = "/api/*"
   to = "https://web-production-e1fae.up.railway.app/api/:splat"
   status = 200
   force = true
+
+# Redirect all OTHER routes to index.html for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
