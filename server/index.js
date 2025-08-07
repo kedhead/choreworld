@@ -21,7 +21,8 @@ const corsOptions = {
     'http://localhost:5173',
     'http://localhost:3000', 
     'https://projectepoch.org',
-    'https://web-production-e1fae.up.railway.app'
+    'https://web-production-e1fae.up.railway.app',
+    'https://master--project-epoch.netlify.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
