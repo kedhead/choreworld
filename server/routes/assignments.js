@@ -14,6 +14,7 @@ const {
     getDishDutyOrder,
     updateDishDutyOrder
 } = require('../services/scheduler');
+const { addExperienceToUser, getUserLevelStats, getLeaderboard } = require('../services/leveling');
 
 // Get current dish duty assignment
 router.get('/dish-duty', authenticateToken, async (req, res) => {
@@ -277,6 +278,128 @@ router.put('/dish-duty/order', authenticateToken, requireAdmin, async (req, res)
         });
     } catch (error) {
         console.error('Update dish duty order error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get available bonus chores
+router.get('/bonus/available', authenticateToken, async (req, res) => {
+    try {
+        const bonusChores = await db.all(
+            'SELECT * FROM chores WHERE is_active = 1 AND is_bonus_available = 1 ORDER BY points DESC'
+        );
+        res.json({ chores: bonusChores });
+    } catch (error) {
+        console.error('Get bonus chores error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Complete a bonus chore
+router.post('/bonus/complete', authenticateToken, async (req, res) => {
+    try {
+        const { choreId } = req.body;
+        const userId = req.user.id;
+        
+        if (req.user.role !== 'kid') {
+            return res.status(403).json({ error: 'Only kids can complete bonus chores' });
+        }
+
+        // Get chore details
+        const chore = await db.get(
+            'SELECT * FROM chores WHERE id = ? AND is_active = 1 AND is_bonus_available = 1',
+            [choreId]
+        );
+        
+        if (!chore) {
+            return res.status(404).json({ error: 'Bonus chore not found' });
+        }
+
+        const completedDate = formatDate(new Date());
+        const completedAt = new Date().toISOString();
+        
+        // Bonus chores give 2x XP!
+        const experienceGained = chore.points * 2;
+
+        // Record bonus chore completion
+        await db.run(
+            'INSERT INTO bonus_chores (user_id, chore_id, completed_date, points_earned, experience_gained, completed_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [userId, choreId, completedDate, chore.points, experienceGained, completedAt]
+        );
+
+        // Add experience and check for level up
+        const levelResult = await addExperienceToUser(userId, experienceGained);
+
+        res.json({
+            message: 'Bonus chore completed successfully!',
+            points: chore.points,
+            experience: experienceGained,
+            leveling: levelResult
+        });
+    } catch (error) {
+        console.error('Complete bonus chore error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get user's level stats
+router.get('/level/stats/:userId?', authenticateToken, async (req, res) => {
+    try {
+        let userId = req.params.userId;
+        
+        // If no userId provided, use current user
+        if (!userId) {
+            userId = req.user.id;
+        }
+        
+        // Only allow kids to see their own stats, admins can see anyone's
+        if (req.user.role !== 'admin' && parseInt(userId) !== req.user.id) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const stats = await getUserLevelStats(userId);
+        res.json({ stats });
+    } catch (error) {
+        console.error('Get level stats error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get leaderboard
+router.get('/leaderboard', authenticateToken, async (req, res) => {
+    try {
+        const leaderboard = await getLeaderboard();
+        res.json({ leaderboard });
+    } catch (error) {
+        console.error('Get leaderboard error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get user's bonus chore history
+router.get('/bonus/history/:userId?', authenticateToken, async (req, res) => {
+    try {
+        let userId = req.params.userId;
+        
+        if (!userId) {
+            userId = req.user.id;
+        }
+        
+        if (req.user.role !== 'admin' && parseInt(userId) !== req.user.id) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const history = await db.all(`
+            SELECT bc.*, c.name as chore_name, c.description as chore_description
+            FROM bonus_chores bc
+            JOIN chores c ON bc.chore_id = c.id
+            WHERE bc.user_id = ?
+            ORDER BY bc.completed_at DESC
+        `, [userId]);
+
+        res.json({ history });
+    } catch (error) {
+        console.error('Get bonus history error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

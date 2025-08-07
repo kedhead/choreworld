@@ -259,6 +259,20 @@ const completeAssignment = async (assignmentId, userId) => {
             VALUES (?, ?, 'daily', ?, ?, ?, ?)
         `, [assignment.user_id, assignment.chore_id, assignmentId, completedAt, assignment.points_earned, weekStart]);
 
+        // Add XP for regular chores (if the user is a kid)
+        if (user.role === 'kid' || assignment.user_id !== userId) {
+            try {
+                const { addExperienceToUser } = require('./leveling');
+                const targetUserId = user.role === 'admin' ? assignment.user_id : userId;
+                
+                // Regular chores give 1x XP (same as points)
+                await addExperienceToUser(targetUserId, assignment.points_earned);
+            } catch (xpError) {
+                console.error('Error adding XP for completed chore:', xpError);
+                // Don't fail the whole operation if XP fails
+            }
+        }
+
         console.log(`Assignment ${assignmentId} marked as completed`);
         return true;
     } catch (error) {

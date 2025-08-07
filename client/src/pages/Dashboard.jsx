@@ -10,16 +10,24 @@ import {
   Trophy,
   Sparkles,
   Utensils,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import LevelDisplay from '../components/LevelDisplay';
+import BonusChores from '../components/BonusChores';
+import Leaderboard from '../components/Leaderboard';
+import LevelUpModal from '../components/LevelUpModal';
 
 const Dashboard = () => {
   const { user, isAdmin } = useAuth();
   const [assignments, setAssignments] = useState([]);
   const [dishDuty, setDishDuty] = useState(null);
+  const [levelStats, setLevelStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState(null);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -27,13 +35,24 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [assignmentsRes, dishDutyRes] = await Promise.all([
+      const requests = [
         axios.get('/api/assignments/daily'),
         axios.get('/api/assignments/dish-duty')
-      ]);
+      ];
       
-      setAssignments(assignmentsRes.data.assignments || []);
-      setDishDuty(dishDutyRes.data.duty || null);
+      // Add level stats request for kids
+      if (!isAdmin) {
+        requests.push(axios.get('/api/assignments/level/stats'));
+      }
+      
+      const responses = await Promise.all(requests);
+      
+      setAssignments(responses[0].data.assignments || []);
+      setDishDuty(responses[1].data.duty || null);
+      
+      if (!isAdmin && responses[2]) {
+        setLevelStats(responses[2].data.stats);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load chores');
@@ -45,15 +64,22 @@ const Dashboard = () => {
   const completeAssignment = async (assignmentId) => {
     setCompletingId(assignmentId);
     try {
-      await axios.post(`/api/assignments/daily/${assignmentId}/complete`);
+      const response = await axios.post(`/api/assignments/daily/${assignmentId}/complete`);
       
       // Show celebration
       showCelebration();
       
-      // Refresh data
+      // Refresh data to get updated level stats
       await fetchData();
       
-      toast.success('Great job! Chore completed! 🎉');
+      let successMessage = 'Great job! Chore completed! 🎉';
+      
+      // Check if there's XP data in response (for kids)
+      if (response.data && response.data.xpGained && !isAdmin) {
+        successMessage += ` +${response.data.xpGained} XP!`;
+      }
+      
+      toast.success(successMessage);
     } catch (error) {
       console.error('Error completing assignment:', error);
       toast.error(error.response?.data?.error || 'Failed to complete chore');
@@ -126,8 +152,15 @@ const Dashboard = () => {
         </p>
       </div>
 
+      {/* Level Display for Kids */}
+      {!isAdmin && levelStats && (
+        <div className="mb-8">
+          <LevelDisplay levelStats={levelStats} />
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className={`grid grid-cols-1 md:grid-cols-${!isAdmin ? '4' : '3'} gap-6 mb-8`}>
         {/* Completion Rate */}
         <div className="card bg-gradient-to-br from-success-50 to-success-100 border-success-200">
           <div className="flex items-center justify-between">
@@ -167,6 +200,22 @@ const Dashboard = () => {
             <Star className="w-12 h-12 text-yellow-500" />
           </div>
         </div>
+
+        {/* XP Card for Kids */}
+        {!isAdmin && levelStats && (
+          <div className="card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-600 font-semibold">Total Experience</p>
+                <p className="text-3xl font-bold text-purple-800">
+                  {levelStats.totalXP}
+                </p>
+                <p className="text-purple-600 text-sm">XP earned all time</p>
+              </div>
+              <Zap className="w-12 h-12 text-purple-500" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Admin Controls */}
@@ -242,6 +291,12 @@ const Dashboard = () => {
                         <Star className="w-4 h-4" />
                         <span>{assignment.points_earned} points</span>
                       </div>
+                      {!isAdmin && (
+                        <div className="flex items-center space-x-1 text-purple-600">
+                          <Zap className="w-4 h-4" />
+                          <span>+{assignment.points_earned} XP</span>
+                        </div>
+                      )}
                       {assignment.is_completed && (
                         <div className="flex items-center space-x-1 text-success-600">
                           <CheckCircle2 className="w-4 h-4" />
@@ -292,6 +347,30 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Bonus Chores for Kids */}
+      {!isAdmin && (
+        <div className="mb-8">
+          <BonusChores 
+            onCompleteBonus={(data) => {
+              // Check for level up
+              if (data.leveling && data.leveling.leveledUp) {
+                setLevelUpData(data.leveling);
+                setShowLevelUpModal(true);
+              }
+              // Refresh data to update level stats
+              fetchData();
+            }} 
+          />
+        </div>
+      )}
+
+      {/* Leaderboard for Kids */}
+      {!isAdmin && (
+        <div className="mb-8">
+          <Leaderboard />
+        </div>
+      )}
+
       {/* Encouragement */}
       {!isAdmin && (
         <div className="card bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200 text-center">
@@ -307,6 +386,13 @@ const Dashboard = () => {
           </p>
         </div>
       )}
+
+      {/* Level Up Modal */}
+      <LevelUpModal 
+        isOpen={showLevelUpModal}
+        onClose={() => setShowLevelUpModal(false)}
+        levelUpData={levelUpData}
+      />
     </div>
   );
 };
