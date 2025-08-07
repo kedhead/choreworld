@@ -13,7 +13,8 @@ import {
   UserPlus,
   Settings,
   BarChart3,
-  Lock
+  Lock,
+  Calendar
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordChangeModal from '../components/PasswordChangeModal';
@@ -24,6 +25,8 @@ const AdminPanel = () => {
   const [chores, setChores] = useState([]);
   const [users, setUsers] = useState([]);
   const [dishDutyOrder, setDishDutyOrder] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   
   // Form states
@@ -67,10 +70,11 @@ const AdminPanel = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [choresRes, usersRes, dishDutyOrderRes] = await Promise.all([
+      const [choresRes, usersRes, dishDutyOrderRes, assignmentsRes] = await Promise.all([
         axios.get('/api/chores'),
         axios.get('/api/auth/users'),
-        axios.get('/api/assignments/dish-duty/order')
+        axios.get('/api/assignments/dish-duty/order'),
+        axios.get(`/api/assignments/daily?date=${selectedDate}`)
       ]);
       
       console.log('Fetched users:', usersRes.data.users);
@@ -78,6 +82,7 @@ const AdminPanel = () => {
       setChores(choresRes.data.chores || []);
       setUsers(usersRes.data.users || []);
       setDishDutyOrder(dishDutyOrderRes.data.order || []);
+      setAssignments(assignmentsRes.data.assignments || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load admin data');
@@ -162,6 +167,31 @@ const AdminPanel = () => {
     handleUpdateDishDutyOrder(newOrder);
   };
 
+  // Manual Assignment Management
+  const handleManualAssignment = async (userId, choreId, assignedDate) => {
+    try {
+      await axios.post('/api/assignments/daily/assign-manual', {
+        userId,
+        choreId,
+        assignedDate
+      });
+      toast.success('Chore assigned successfully! 📅');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to assign chore');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    try {
+      await axios.delete(`/api/assignments/daily/${assignmentId}`);
+      toast.success('Assignment removed! 🗑️');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to remove assignment');
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner message="Loading admin panel..." />;
   }
@@ -169,6 +199,7 @@ const AdminPanel = () => {
   const tabs = [
     { id: 'chores', label: 'Manage Chores', icon: ListTodo, emoji: '📋' },
     { id: 'users', label: 'Manage Users', icon: Users, emoji: '👥' },
+    { id: 'assign', label: 'Assign Chores', icon: Calendar, emoji: '📅' },
     { id: 'dishes', label: 'Dish Duty Order', icon: Settings, emoji: '🍽️' },
     { id: 'stats', label: 'Statistics', icon: BarChart3, emoji: '📊' }
   ];
@@ -505,6 +536,146 @@ const AdminPanel = () => {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Assign Chores Tab */}
+      {activeTab === 'assign' && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Assign Daily Chores</h2>
+                <p className="text-gray-600 mt-2">Manually assign specific chores to kids for any date</p>
+              </div>
+              <div className="text-4xl">📅</div>
+            </div>
+            
+            {/* Date Selector */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Date
+              </label>
+              <input
+                type="date"
+                className="input-field max-w-xs"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  // Refetch assignments for new date
+                  setTimeout(() => fetchData(), 100);
+                }}
+              />
+            </div>
+
+            {/* Assignment Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Kids Column */}
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Kids</h3>
+                <div className="space-y-4">
+                  {users.filter(u => u.role === 'kid').map((kid) => {
+                    const kidAssignment = assignments.find(a => a.user_id === kid.id);
+                    return (
+                      <div key={kid.id} className="card bg-blue-50 border-blue-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                              {kid.display_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800">{kid.display_name}</h4>
+                              <p className="text-sm text-gray-600">@{kid.username}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Current Assignment */}
+                        {kidAssignment ? (
+                          <div className="bg-green-100 border border-green-300 rounded-lg p-3 mb-3">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-medium text-green-800">{kidAssignment.chore_name}</p>
+                                <p className="text-sm text-green-600">{kidAssignment.chore_description}</p>
+                                <p className="text-xs text-green-600 mt-1">⭐ {kidAssignment.points_earned} points</p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteAssignment(kidAssignment.id)}
+                                className="text-red-600 hover:text-red-800 p-1"
+                                title="Remove assignment"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            {kidAssignment.is_completed && (
+                              <p className="text-green-700 text-sm mt-2 flex items-center">
+                                ✅ Completed at {new Date(kidAssignment.completed_at).toLocaleTimeString()}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-3 text-center text-gray-500">
+                            No chore assigned for this date
+                          </div>
+                        )}
+
+                        {/* Assign Chore Dropdown */}
+                        <select
+                          className="input-field text-sm"
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleManualAssignment(kid.id, parseInt(e.target.value), selectedDate);
+                              e.target.value = '';
+                            }
+                          }}
+                          defaultValue=""
+                        >
+                          <option value="">Assign a chore...</option>
+                          {chores.filter(c => c.is_active).map((chore) => (
+                            <option key={chore.id} value={chore.id}>
+                              {chore.name} (⭐ {chore.points} pts)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                  
+                  {users.filter(u => u.role === 'kid').length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="text-4xl mb-2">👶</div>
+                      <p>No kids found. Create kid users first!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Available Chores Column */}
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Available Chores</h3>
+                <div className="space-y-3">
+                  {chores.filter(c => c.is_active).map((chore) => (
+                    <div key={chore.id} className="card bg-yellow-50 border-yellow-200">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-bold text-gray-800">{chore.name}</h4>
+                          <p className="text-sm text-gray-600">{chore.description}</p>
+                          <p className="text-xs text-yellow-600 mt-1">⭐ {chore.points} points</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {chores.filter(c => c.is_active).length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="text-4xl mb-2">📋</div>
+                      <p>No chores available. Create chores first!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

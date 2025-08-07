@@ -67,6 +67,79 @@ router.post('/daily/assign', authenticateToken, requireAdmin, async (req, res) =
     }
 });
 
+// Manually assign specific chore to specific user for specific date (admin only)
+router.post('/daily/assign-manual', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId, choreId, assignedDate } = req.body;
+        
+        if (!userId || !choreId || !assignedDate) {
+            return res.status(400).json({ error: 'userId, choreId, and assignedDate are required' });
+        }
+
+        // Check if user exists and is a kid
+        const user = await db.get('SELECT * FROM users WHERE id = ? AND role = ?', [userId, 'kid']);
+        if (!user) {
+            return res.status(400).json({ error: 'User not found or not a kid' });
+        }
+
+        // Check if chore exists
+        const chore = await db.get('SELECT * FROM chores WHERE id = ? AND is_active = 1', [choreId]);
+        if (!chore) {
+            return res.status(400).json({ error: 'Chore not found or not active' });
+        }
+
+        // Check if assignment already exists for this user and date
+        const existingAssignment = await db.get(
+            'SELECT * FROM daily_assignments WHERE user_id = ? AND assigned_date = ?',
+            [userId, assignedDate]
+        );
+
+        if (existingAssignment) {
+            // Update existing assignment
+            await db.run(
+                'UPDATE daily_assignments SET chore_id = ?, points_earned = ?, is_completed = 0, completed_at = NULL WHERE user_id = ? AND assigned_date = ?',
+                [choreId, chore.points, userId, assignedDate]
+            );
+        } else {
+            // Create new assignment
+            await db.run(
+                'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned) VALUES (?, ?, ?, ?)',
+                [userId, choreId, assignedDate, chore.points]
+            );
+        }
+
+        res.json({ 
+            message: 'Chore assigned successfully',
+            assignment: {
+                user_name: user.display_name,
+                chore_name: chore.name,
+                assigned_date: assignedDate
+            }
+        });
+    } catch (error) {
+        console.error('Manual assignment error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Delete/unassign a daily assignment (admin only)
+router.delete('/daily/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const assignmentId = req.params.id;
+        
+        const result = await db.run('DELETE FROM daily_assignments WHERE id = ?', [assignmentId]);
+        
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+
+        res.json({ message: 'Assignment deleted successfully' });
+    } catch (error) {
+        console.error('Delete assignment error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Manually trigger dish duty rotation (admin only)
 router.post('/dish-duty/rotate', authenticateToken, requireAdmin, async (req, res) => {
     try {
