@@ -53,6 +53,13 @@ const AdminPanel = () => {
     fetchData();
   }, []);
 
+  // Fetch assignments when switching to assign tab
+  useEffect(() => {
+    if (activeTab === 'assign') {
+      fetchAssignmentsForDate(selectedDate);
+    }
+  }, [activeTab]);
+
   // Re-fetch data when component becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -70,11 +77,10 @@ const AdminPanel = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [choresRes, usersRes, dishDutyOrderRes, assignmentsRes] = await Promise.all([
+      const [choresRes, usersRes, dishDutyOrderRes] = await Promise.all([
         axios.get('/api/chores'),
         axios.get('/api/auth/users'),
-        axios.get('/api/assignments/dish-duty/order'),
-        axios.get(`/api/assignments/daily?date=${selectedDate}`)
+        axios.get('/api/assignments/dish-duty/order')
       ]);
       
       console.log('Fetched users:', usersRes.data.users);
@@ -82,12 +88,25 @@ const AdminPanel = () => {
       setChores(choresRes.data.chores || []);
       setUsers(usersRes.data.users || []);
       setDishDutyOrder(dishDutyOrderRes.data.order || []);
-      setAssignments(assignmentsRes.data.assignments || []);
+      
+      // Fetch assignments for current selected date
+      await fetchAssignmentsForDate(selectedDate);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load admin data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAssignmentsForDate = async (date) => {
+    try {
+      const assignmentsRes = await axios.get(`/api/assignments/daily?date=${date}`);
+      setAssignments(assignmentsRes.data.assignments || []);
+      console.log('Fetched assignments for', date, ':', assignmentsRes.data.assignments);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      setAssignments([]);
     }
   };
 
@@ -176,7 +195,7 @@ const AdminPanel = () => {
         assignedDate
       });
       toast.success('Chore assigned successfully! 📅');
-      fetchData();
+      await fetchAssignmentsForDate(assignedDate);
     } catch (error) {
       toast.error('Failed to assign chore');
     }
@@ -186,10 +205,15 @@ const AdminPanel = () => {
     try {
       await axios.delete(`/api/assignments/daily/${assignmentId}`);
       toast.success('Assignment removed! 🗑️');
-      fetchData();
+      await fetchAssignmentsForDate(selectedDate);
     } catch (error) {
       toast.error('Failed to remove assignment');
     }
+  };
+
+  const handleDateChange = async (newDate) => {
+    setSelectedDate(newDate);
+    await fetchAssignmentsForDate(newDate);
   };
 
   if (loading) {
@@ -561,11 +585,7 @@ const AdminPanel = () => {
                 type="date"
                 className="input-field max-w-xs"
                 value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  // Refetch assignments for new date
-                  setTimeout(() => fetchData(), 100);
-                }}
+                onChange={(e) => handleDateChange(e.target.value)}
               />
             </div>
 
