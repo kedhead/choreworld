@@ -274,4 +274,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-Made with ❤️ for families who want to make chores fun! 🏠✨
+Made with ❤️ for families who want to make chores fun! 🏠✨# force deploy
