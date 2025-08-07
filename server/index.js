@@ -126,8 +126,16 @@ app.listen(PORT, () => {
     const db = require('./database/database');
     
     // Always ensure essential users exist on startup
-    setTimeout(() => {
-        db.restoreEssentialUsers();
+    setTimeout(async () => {
+        try {
+            await db.restoreEssentialUsers();
+            
+            // Initialize production database (leveling system and bonus chores)
+            const { initProductionDatabase } = require('./database/init-production');
+            await initProductionDatabase();
+        } catch (error) {
+            console.error('❌ Startup initialization failed:', error);
+        }
     }, 2000); // Wait 2 seconds for database to be fully initialized
 });
 

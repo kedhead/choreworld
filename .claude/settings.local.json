@@ -14,7 +14,9 @@
       "Bash(git branch:*)",
       "Bash(rm:*)",
       "Bash(sqlite3:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx netlify deploy:*)",
+      "WebFetch(domain:choreworld-production.up.railway.app)"
     ],
     "deny": []
   }

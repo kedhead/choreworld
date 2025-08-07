@@ -1,9 +1,9 @@
 [build]
-  # Build command - change to client dir and build
-  command = "cd client && npm install --legacy-peer-deps && npm run build"
+  # Build command - since we're already in client dir  
+  command = "npm install --legacy-peer-deps && npm run build"
   
-  # Publish directory - absolute path from repo root
-  publish = "client/dist"
+  # Publish directory - relative to current dir
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -15,9 +15,9 @@
   to = "/index.html"
   status = 200
 
-# API proxy to your Render backend
+# API proxy to your Railway backend
 [[redirects]]
   from = "/api/*"
-  to = "https://choreworld.onrender.com/api/:splat"
+  to = "https://choreworld-production.up.railway.app/api/:splat"
   status = 200
   force = true
