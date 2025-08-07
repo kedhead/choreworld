@@ -59,7 +59,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 // Update chore (admin only)
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { name, description, points, is_active } = req.body;
+        const { name, description, points, is_active, is_bonus_available } = req.body;
         const choreId = req.params.id;
 
         // Check if chore exists
@@ -71,12 +71,13 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
         // Update chore
         await db.run(
-            'UPDATE chores SET name = ?, description = ?, points = ?, is_active = ? WHERE id = ?',
+            'UPDATE chores SET name = ?, description = ?, points = ?, is_active = ?, is_bonus_available = ? WHERE id = ?',
             [
                 name || existingChore.name,
                 description !== undefined ? description : existingChore.description,
                 points !== undefined ? points : existingChore.points,
                 is_active !== undefined ? is_active : existingChore.is_active,
+                is_bonus_available !== undefined ? (is_bonus_available ? 1 : 0) : existingChore.is_bonus_available,
                 choreId
             ]
         );

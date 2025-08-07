@@ -386,7 +386,14 @@ const AdminPanel = () => {
                 ) : (
                   <div>
                     <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-bold text-lg text-gray-800">{chore.name}</h3>
+                      <h3 className="font-bold text-lg text-gray-800 flex items-center">
+                        {chore.name}
+                        {chore.is_bonus_available && (
+                          <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                            🌟 Bonus
+                          </span>
+                        )}
+                      </h3>
                       <div className="flex items-center space-x-1 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm">
                         <span>⭐</span>
                         <span>{chore.points}</span>
@@ -916,7 +923,8 @@ const ChoreEditForm = ({ chore, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     name: chore.name,
     description: chore.description || '',
-    points: chore.points
+    points: chore.points,
+    is_bonus_available: chore.is_bonus_available || false
   });
 
   const handleSubmit = (e) => {
@@ -949,6 +957,16 @@ const ChoreEditForm = ({ chore, onSave, onCancel }) => {
         value={formData.points}
         onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) }))}
       />
+      
+      <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+        <input
+          type="checkbox"
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          checked={formData.is_bonus_available}
+          onChange={(e) => setFormData(prev => ({ ...prev, is_bonus_available: e.target.checked }))}
+        />
+        <span>Bonus Chore (2x XP) 🌟</span>
+      </label>
       
       <div className="flex space-x-2">
         <button type="submit" className="flex-1 btn-success text-sm py-2">
