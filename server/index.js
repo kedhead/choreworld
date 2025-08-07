@@ -54,7 +54,15 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        message: 'ChoreWorld server is running!' 
+        message: 'ChoreWorld server is running!',
+        version: '2.0-leveling-system',
+        endpoints: [
+            '/api/auth/*',
+            '/api/chores/*', 
+            '/api/assignments/*',
+            '/api/assignments/bonus/available',
+            '/api/assignments/leaderboard'
+        ]
     });
 });
 
