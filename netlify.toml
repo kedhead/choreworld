@@ -18,6 +18,6 @@
 # API proxy to your Railway backend
 [[redirects]]
   from = "/api/*"
-  to = "https://choreworld-production.up.railway.app/api/:splat"
+  to = "https://web-production-e1fae.up.railway.app/api/:splat"
   status = 200
   force = true
