@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Bonus API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .step { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; max-height: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Bonus API Issue</h1>
+    <div id="results"></div>
+    
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        function addStep(title, content, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'step ' + (isError ? 'error' : 'success');
+            div.innerHTML = `<h3>${title}</h3>${content}`;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function debugAPI() {
+            try {
+                // Step 1: Test if we can reach the API at all
+                addStep('Step 1: Testing direct Railway API', 'Testing https://web-production-e1fae.up.railway.app/api/health');
+                const healthResponse = await fetch('https://web-production-e1fae.up.railway.app/api/health');
+                const healthText = await healthResponse.text();
+                addStep('Health Check Response', `<pre>Status: ${healthResponse.status}\nContent-Type: ${healthResponse.headers.get('content-type')}\nBody: ${healthText}</pre>`);
+                
+                // Step 2: Test Netlify proxy
+                addStep('Step 2: Testing Netlify proxy', 'Testing https://projectepoch.org/api/health');
+                const proxyHealthResponse = await fetch('https://projectepoch.org/api/health');
+                const proxyHealthText = await proxyHealthResponse.text();
+                addStep('Netlify Proxy Health Response', `<pre>Status: ${proxyHealthResponse.status}\nContent-Type: ${proxyHealthResponse.headers.get('content-type')}\nBody: ${proxyHealthText}</pre>`);
+                
+                // Step 3: Try to login
+                addStep('Step 3: Testing login', 'Attempting to login as admin');
+                const loginResponse = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                
+                const loginContentType = loginResponse.headers.get('content-type');
+                const loginText = await loginResponse.text();
+                
+                if (loginContentType && loginContentType.includes('application/json')) {
+                    const loginData = JSON.parse(loginText);
+                    addStep('Login Response', `<pre>Status: ${loginResponse.status}\nContent-Type: ${loginContentType}\nSuccess: ${!!loginData.token}</pre>`);
+                    
+                    if (loginData.token) {
+                        // Step 4: Test bonus chores with auth
+                        addStep('Step 4: Testing bonus chores with auth', 'Testing /api/assignments/bonus/available');
+                        const bonusResponse = await fetch('/api/assignments/bonus/available', {
+                            headers: {
+                                'Authorization': `Bearer ${loginData.token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        const bonusContentType = bonusResponse.headers.get('content-type');
+                        const bonusText = await bonusResponse.text();
+                        
+                        addStep('Bonus Chores Response', `<pre>Status: ${bonusResponse.status}\nContent-Type: ${bonusContentType}\nBody: ${bonusText.substring(0, 500)}${bonusText.length > 500 ? '...' : ''}</pre>`, !bonusContentType?.includes('application/json'));
+                        
+                        if (bonusContentType && bonusContentType.includes('application/json')) {
+                            const bonusData = JSON.parse(bonusText);
+                            addStep('Bonus Chores Parsed', `<pre>Chores found: ${bonusData.chores ? bonusData.chores.length : 'N/A'}</pre>`);
+                        }
+                    }
+                } else {
+                    addStep('Login Error', `<pre>Status: ${loginResponse.status}\nContent-Type: ${loginContentType}\nReceived HTML instead of JSON:\n${loginText.substring(0, 300)}...</pre>`, true);
+                }
+                
+            } catch (error) {
+                addStep('JavaScript Error', `<pre>${error.message}\n${error.stack}</pre>`, true);
+            }
+        }
+        
+        // Run the debug
+        debugAPI();
+    </script>
+</body>
+</html>

@@ -39,7 +39,8 @@ const AdminPanel = () => {
   const [newChore, setNewChore] = useState({
     name: '',
     description: '',
-    points: 1
+    points: 1,
+    is_bonus_available: false
   });
   
   const [newUser, setNewUser] = useState({
@@ -116,7 +117,7 @@ const AdminPanel = () => {
     try {
       await axios.post('/api/chores', newChore);
       toast.success('Chore created successfully! 🎉');
-      setNewChore({ name: '', description: '', points: 1 });
+      setNewChore({ name: '', description: '', points: 1, is_bonus_available: false });
       setShowNewChoreForm(false);
       fetchData();
     } catch (error) {
@@ -286,7 +287,10 @@ const AdminPanel = () => {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-green-800">Create New Chore</h3>
                 <button
-                  onClick={() => setShowNewChoreForm(false)}
+                  onClick={() => {
+                    setShowNewChoreForm(false);
+                    setNewChore({ name: '', description: '', points: 1, is_bonus_available: false });
+                  }}
                   className="text-green-600 hover:text-green-800"
                 >
                   <X className="w-5 h-5" />
@@ -322,6 +326,18 @@ const AdminPanel = () => {
                       onChange={(e) => setNewChore(prev => ({ ...prev, points: parseInt(e.target.value) }))}
                     />
                   </div>
+                  
+                  <div>
+                    <label className="flex items-center space-x-2 text-sm font-medium text-green-700">
+                      <input
+                        type="checkbox"
+                        className="rounded border-green-300 text-green-600 focus:ring-green-500"
+                        checked={newChore.is_bonus_available}
+                        onChange={(e) => setNewChore(prev => ({ ...prev, is_bonus_available: e.target.checked }))}
+                      />
+                      <span>Bonus Chore (2x XP) 🌟</span>
+                    </label>
+                  </div>
                 </div>
                 
                 <div>
@@ -344,7 +360,10 @@ const AdminPanel = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowNewChoreForm(false)}
+                    onClick={() => {
+                      setShowNewChoreForm(false);
+                      setNewChore({ name: '', description: '', points: 1, is_bonus_available: false });
+                    }}
                     className="btn-secondary"
                   >
                     Cancel

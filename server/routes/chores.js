@@ -33,15 +33,15 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new chore (admin only)
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { name, description, points } = req.body;
+        const { name, description, points, is_bonus_available } = req.body;
 
         if (!name) {
             return res.status(400).json({ error: 'Chore name is required' });
         }
 
         const result = await db.run(
-            'INSERT INTO chores (name, description, points) VALUES (?, ?, ?)',
-            [name, description || '', points || 1]
+            'INSERT INTO chores (name, description, points, is_bonus_available) VALUES (?, ?, ?, ?)',
+            [name, description || '', points || 1, is_bonus_available ? 1 : 0]
         );
 
         const chore = await db.get('SELECT * FROM chores WHERE id = ?', [result.id]);

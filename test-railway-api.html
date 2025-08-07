@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Railway API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Railway API Test</h1>
+    
+    <div id="tests"></div>
+    
+    <script>
+        const API_BASE = 'https://web-production-e1fae.up.railway.app/api';
+        const testsDiv = document.getElementById('tests');
+        
+        async function runTest(name, url, needsAuth = false) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test';
+            testDiv.innerHTML = `<h3>${name}</h3><p>Testing: ${url}</p><div id="result-${name.replace(/\s+/g, '-')}">Loading...</div>`;
+            testsDiv.appendChild(testDiv);
+            
+            const resultDiv = testDiv.querySelector(`#result-${name.replace(/\s+/g, '-')}`);
+            
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (needsAuth) {
+                    // Try to login first
+                    const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                    });
+                    
+                    if (loginResponse.ok) {
+                        const loginData = await loginResponse.json();
+                        headers['Authorization'] = `Bearer ${loginData.token}`;
+                    } else {
+                        throw new Error('Login failed');
+                    }
+                }
+                
+                const response = await fetch(url, { headers });
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<strong>Status:</strong> ${response.status}<br><strong>Content-Type:</strong> ${contentType}<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    testDiv.classList.add('success');
+                } else {
+                    const text = await response.text();
+                    resultDiv.innerHTML = `<strong>Status:</strong> ${response.status}<br><strong>Content-Type:</strong> ${contentType}<br><strong>Error:</strong> Received HTML instead of JSON<br><pre>${text.substring(0, 200)}...</pre>`;
+                    testDiv.classList.add('error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                testDiv.classList.add('error');
+            }
+        }
+        
+        // Run tests
+        (async () => {
+            await runTest('Health Check', `${API_BASE}/health`);
+            await runTest('Login Test', `${API_BASE}/auth/login`);
+            await runTest('Bonus Chores', `${API_BASE}/assignments/bonus/available`, true);
+            await runTest('Leaderboard', `${API_BASE}/assignments/leaderboard`, true);
+            await runTest('Daily Assignments', `${API_BASE}/assignments/daily`, true);
+        })();
+    </script>
+</body>
+</html>
