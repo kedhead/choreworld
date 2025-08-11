@@ -14,11 +14,13 @@ import {
   Settings,
   BarChart3,
   Lock,
-  Calendar
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import FamilyManagement from '../components/FamilyManagement';
+import PaymentTracking from '../components/PaymentTracking';
 
 const AdminPanel = () => {
   const { register } = useAuth();
@@ -226,6 +228,7 @@ const AdminPanel = () => {
     { id: 'users', label: 'Manage Users', icon: Users, emoji: '👥' },
     { id: 'assign', label: 'Assign Chores', icon: Calendar, emoji: '📅' },
     { id: 'dishes', label: 'Dish Duty Order', icon: Settings, emoji: '🍽️' },
+    { id: 'payments', label: 'Payment Tracking', icon: DollarSign, emoji: '💰' },
     { id: 'family', label: 'Family Settings', icon: Users, emoji: '🏠' },
     { id: 'stats', label: 'Statistics', icon: BarChart3, emoji: '📊' }
   ];
@@ -867,6 +870,13 @@ const AdminPanel = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Payments Tab */}
+      {activeTab === 'payments' && (
+        <div className="space-y-6">
+          <PaymentTracking />
         </div>
       )}
 

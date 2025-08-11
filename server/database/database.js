@@ -189,6 +189,7 @@ class Database {
     // Check and run multi-family migration if needed
     async checkAndRunMigration() {
         try {
+            // Run multi-family migration
             const { checkMigrationStatus, runMultiFamilyMigration } = require('./migrate-multi-family');
             const status = await checkMigrationStatus(this);
             
@@ -198,6 +199,18 @@ class Database {
                 console.log('✅ Multi-family migration completed');
             } else {
                 console.log('✅ Multi-family migration already completed');
+            }
+
+            // Run payment tracking migration
+            const { checkPaymentTrackingMigrationStatus, runPaymentTrackingMigration } = require('./migrate-payment-tracking');
+            const paymentStatus = await checkPaymentTrackingMigrationStatus(this);
+            
+            if (!paymentStatus.migrated) {
+                console.log('🚀 Running payment tracking migration...');
+                await runPaymentTrackingMigration(this);
+                console.log('✅ Payment tracking migration completed');
+            } else {
+                console.log('✅ Payment tracking migration already completed');
             }
         } catch (error) {
             console.error('❌ Migration check/run failed:', error.message);
