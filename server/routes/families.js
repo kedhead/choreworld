@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/database');
-const { authenticateToken, requireAdmin, hashPassword } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, hashPassword, generateToken } = require('../middleware/auth');
 const crypto = require('crypto');
 
 // Generate unique family code
@@ -67,13 +67,27 @@ router.post('/create', authenticateToken, async (req, res) => {
             [familyId, inviteCode, userId, expiresAt.toISOString(), 10]
         );
 
+        // Get updated user info with family_id and admin role
+        const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+        
+        // Generate new token with updated user info
+        const newToken = generateToken(updatedUser);
+
         res.status(201).json({
             message: 'Family created successfully',
+            token: newToken, // Return new token with updated family_id
             family: {
                 id: familyId,
                 name: name.trim(),
                 family_code: familyCode,
                 invite_code: inviteCode
+            },
+            user: {
+                id: updatedUser.id,
+                username: updatedUser.username,
+                role: updatedUser.role,
+                display_name: updatedUser.display_name,
+                family_id: updatedUser.family_id
             }
         });
     } catch (error) {
@@ -124,11 +138,25 @@ router.post('/join', authenticateToken, async (req, res) => {
             [invite.id]
         );
 
+        // Get updated user info with family_id
+        const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+        
+        // Generate new token with updated user info
+        const newToken = generateToken(updatedUser);
+
         res.json({
             message: 'Successfully joined family',
+            token: newToken, // Return new token with updated family_id
             family: {
                 id: invite.family_id,
                 name: invite.family_name
+            },
+            user: {
+                id: updatedUser.id,
+                username: updatedUser.username,
+                role: updatedUser.role,
+                display_name: updatedUser.display_name,
+                family_id: updatedUser.family_id
             }
         });
     } catch (error) {

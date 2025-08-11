@@ -14,7 +14,7 @@ export const useFamily = () => {
 };
 
 export const FamilyProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, updateToken } = useAuth();
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState([]);
@@ -54,6 +54,11 @@ export const FamilyProvider = ({ children }) => {
         name: familyName.trim()
       });
       
+      // Update token with new user info that includes family_id
+      if (response.data.token && response.data.user) {
+        updateToken(response.data.token, response.data.user);
+      }
+      
       toast.success(`Family "${familyName}" created successfully! 🏠`);
       await fetchFamilyInfo();
       
@@ -73,6 +78,11 @@ export const FamilyProvider = ({ children }) => {
       const response = await axios.post('/api/families/join', {
         inviteCode: inviteCode.trim().toUpperCase()
       });
+      
+      // Update token with new user info that includes family_id
+      if (response.data.token && response.data.user) {
+        updateToken(response.data.token, response.data.user);
+      }
       
       toast.success(`Successfully joined ${response.data.family.name}! 🎉`);
       await fetchFamilyInfo();

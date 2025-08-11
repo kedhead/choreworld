@@ -116,11 +116,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateToken = (newToken, newUser) => {
+    localStorage.setItem('token', newToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    setUser({
+      ...newUser,
+      family_id: newUser.family_id || null
+    });
+  };
+
   const value = {
     user,
     login,
     logout,
     register,
+    updateToken,
     loading,
     isAdmin: user?.role === 'admin',
     isKid: user?.role === 'kid'
