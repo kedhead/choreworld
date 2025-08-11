@@ -200,7 +200,10 @@ class Database {
                 console.log('✅ Multi-family migration already completed');
             }
         } catch (error) {
-            console.error('❌ Migration check/run failed:', error);
+            console.error('❌ Migration check/run failed:', error.message);
+            console.error('❌ Migration stack trace:', error.stack);
+            // Don't throw error to prevent server from crashing
+            // Migration failure shouldn't prevent server from starting
         }
     }
 

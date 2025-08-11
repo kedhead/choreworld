@@ -131,6 +131,8 @@ app.listen(PORT, () => {
     console.log(`🎉 ChoreWorld server running on port ${PORT}`);
     console.log(`📅 Daily chore scheduler active (runs at 1:00 AM)`);
     console.log(`🍽️  Dish duty rotation active (runs Mondays at 12:01 AM)`);
+    console.log(`🏠 Working directory: ${process.cwd()}`);
+    console.log(`🗏️ Environment: ${process.env.NODE_ENV || 'development'}`);
     
     // Ensure essential users exist on startup
     const db = require('./database/database');
@@ -153,4 +155,19 @@ app.listen(PORT, () => {
 process.on('SIGINT', () => {
     console.log('\n👋 Shutting down ChoreWorld server...');
     process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n👋 Received SIGTERM, shutting down ChoreWorld server...');
+    process.exit(0);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('❌ Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
 });
