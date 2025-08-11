@@ -59,7 +59,11 @@ export const AuthProvider = ({ children }) => {
   const verifyToken = async () => {
     try {
       const response = await axios.get('/api/auth/me');
-      setUser(response.data.user);
+      const userData = response.data.user;
+      setUser({
+        ...userData,
+        family_id: userData.family_id || null
+      });
     } catch (error) {
       console.error('Token verification failed:', error);
       logout();
@@ -79,7 +83,10 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUser({
+        ...user,
+        family_id: user.family_id || null
+      });
       
       toast.success(`Welcome back, ${user.display_name}! 🎉`);
       return true;

@@ -36,7 +36,8 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 username: user.username,
                 role: user.role,
-                display_name: user.display_name
+                display_name: user.display_name,
+                family_id: user.family_id
             }
         });
     } catch (error) {
@@ -84,9 +85,15 @@ router.post('/register', authenticateToken, async (req, res) => {
                 id: result.id,
                 username,
                 role,
-                display_name
+                display_name,
+                family_id: req.user.family_id // New users inherit admin's family
             }
         });
+        
+        // Assign new user to the same family as the admin
+        if (req.user.family_id) {
+            await db.run('UPDATE users SET family_id = ? WHERE id = ?', [req.user.family_id, result.id]);
+        }
     } catch (error) {
         console.error('Register error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -100,19 +107,33 @@ router.get('/me', authenticateToken, (req, res) => {
             id: req.user.id,
             username: req.user.username,
             role: req.user.role,
-            display_name: req.user.display_name
+            display_name: req.user.display_name,
+            family_id: req.user.family_id
         }
     });
 });
 
-// Get all users (admin only)
+// Get all users (admin only - family scoped)
 router.get('/users', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
-        const users = await db.all('SELECT id, username, role, display_name, created_at FROM users ORDER BY created_at DESC');
+        const familyId = req.user.family_id;
+        let users;
+        
+        if (familyId) {
+            // Show only users in the same family
+            users = await db.all(
+                'SELECT id, username, role, display_name, family_id, created_at FROM users WHERE family_id = ? ORDER BY created_at DESC',
+                [familyId]
+            );
+        } else {
+            // If admin has no family, show all users (for migration compatibility)
+            users = await db.all('SELECT id, username, role, display_name, family_id, created_at FROM users ORDER BY created_at DESC');
+        }
+        
         res.json({ users });
     } catch (error) {
         console.error('Get users error:', error);

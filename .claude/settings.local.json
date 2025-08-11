@@ -17,7 +17,8 @@
       "Bash(ls:*)",
       "Bash(npx netlify deploy:*)",
       "WebFetch(domain:choreworld-production.up.railway.app)",
-      "WebFetch(domain:web-production-e1fae.up.railway.app)"
+      "WebFetch(domain:web-production-e1fae.up.railway.app)",
+      "Bash(npm start)"
     ],
     "deny": []
   }

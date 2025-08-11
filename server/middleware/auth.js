@@ -10,7 +10,8 @@ const generateToken = (user) => {
             id: user.id, 
             username: user.username, 
             role: user.role,
-            display_name: user.display_name 
+            display_name: user.display_name,
+            family_id: user.family_id || null
         },
         JWT_SECRET,
         { expiresIn: '7d' }
@@ -43,6 +44,31 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+// Family membership check middleware
+const requireFamily = (req, res, next) => {
+    if (!req.user.family_id) {
+        return res.status(403).json({ error: 'Family membership required' });
+    }
+    next();
+};
+
+// Same family check middleware (for accessing family-scoped resources)
+const requireSameFamily = (paramName = 'familyId') => {
+    return (req, res, next) => {
+        const targetFamilyId = req.params[paramName] || req.body[paramName] || req.query[paramName];
+        
+        if (!req.user.family_id) {
+            return res.status(403).json({ error: 'Family membership required' });
+        }
+        
+        if (targetFamilyId && parseInt(targetFamilyId) !== req.user.family_id) {
+            return res.status(403).json({ error: 'Access denied: different family' });
+        }
+        
+        next();
+    };
+};
+
 // Hash password
 const hashPassword = async (password) => {
     return await bcrypt.hash(password, 10);
@@ -57,6 +83,8 @@ module.exports = {
     generateToken,
     authenticateToken,
     requireAdmin,
+    requireFamily,
+    requireSameFamily,
     hashPassword,
     comparePassword
 };

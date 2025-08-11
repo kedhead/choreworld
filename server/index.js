@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 10000;
 const authRoutes = require('./routes/auth');
 const choreRoutes = require('./routes/chores');
 const assignmentRoutes = require('./routes/assignments');
+const familyRoutes = require('./routes/families');
 
 // Import services
 const { assignDailyChores, rotateDishDuty } = require('./services/scheduler');
@@ -48,6 +49,7 @@ app.options('*', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/chores', choreRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/families', familyRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -61,7 +63,8 @@ app.get('/api/health', (req, res) => {
             '/api/chores/*', 
             '/api/assignments/*',
             '/api/assignments/bonus/available',
-            '/api/assignments/leaderboard'
+            '/api/assignments/leaderboard',
+            '/api/families/*'
         ]
     });
 });

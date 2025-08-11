@@ -24,65 +24,89 @@ const formatDate = (date) => {
     return date.toISOString().split('T')[0];
 };
 
-// Assign daily chores to all kids
-const assignDailyChores = async () => {
+// Assign daily chores to all kids (family-scoped)
+const assignDailyChores = async (familyId = null) => {
     try {
         const today = formatDate(new Date());
         
-        // Get all kids
-        const kids = await db.all('SELECT * FROM users WHERE role = ?', ['kid']);
+        // Get all families or specific family
+        let families = [];
+        if (familyId) {
+            const family = await db.get('SELECT * FROM families WHERE id = ?', [familyId]);
+            if (family) families = [family];
+        } else {
+            families = await db.all('SELECT * FROM families').catch(() => []);
+        }
         
-        if (kids.length === 0) {
-            console.log('No kids found for daily chore assignment');
+        if (families.length === 0) {
+            console.log('No families found for daily chore assignment');
             return;
         }
-
-        // Get all active chores
-        const chores = await db.all('SELECT * FROM chores WHERE is_active = 1');
         
-        if (chores.length === 0) {
-            console.log('No active chores found for assignment');
-            return;
-        }
-
-        // Check if assignments already exist for today
-        const existingAssignments = await db.all(
-            'SELECT COUNT(*) as count FROM daily_assignments WHERE assigned_date = ?',
-            [today]
-        );
-
-        if (existingAssignments[0].count > 0) {
-            console.log(`Daily assignments already exist for ${today}`);
-            return;
-        }
-
-        // Shuffle chores and assign unique chores to each kid
-        const shuffledChores = [...chores].sort(() => Math.random() - 0.5);
-        const assignedChores = [];
-        
-        for (let i = 0; i < kids.length; i++) {
-            const kid = kids[i];
+        for (const family of families) {
+            console.log(`📋 Processing family: ${family.name}`);
             
-            // If we have more kids than chores, cycle through chores
-            const choreIndex = i % shuffledChores.length;
-            let assignedChore = shuffledChores[choreIndex];
-            
-            // If we're cycling and this chore was already assigned today, try to find an unassigned one
-            if (assignedChores.includes(assignedChore.id) && shuffledChores.length > assignedChores.length) {
-                assignedChore = shuffledChores.find(chore => !assignedChores.includes(chore.id)) || assignedChore;
-            }
-            
-            // Assign the chore
-            await db.run(
-                'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned) VALUES (?, ?, ?, ?)',
-                [kid.id, assignedChore.id, today, assignedChore.points]
+            // Get kids in this family
+            const kids = await db.all(
+                'SELECT * FROM users WHERE role = ? AND family_id = ?',
+                ['kid', family.id]
             );
             
-            assignedChores.push(assignedChore.id);
-            console.log(`Assigned "${assignedChore.name}" to ${kid.display_name} for ${today}`);
-        }
+            if (kids.length === 0) {
+                console.log(`No kids found in family ${family.name}`);
+                continue;
+            }
 
-        console.log(`Daily chores assigned successfully for ${today}`);
+            // Get active chores for this family
+            const chores = await db.all(
+                'SELECT * FROM chores WHERE is_active = 1 AND family_id = ?',
+                [family.id]
+            );
+            
+            if (chores.length === 0) {
+                console.log(`No active chores found for family ${family.name}`);
+                continue;
+            }
+
+            // Check if assignments already exist for today for this family
+            const existingAssignments = await db.all(
+                'SELECT COUNT(*) as count FROM daily_assignments WHERE assigned_date = ? AND family_id = ?',
+                [today, family.id]
+            );
+
+            if (existingAssignments[0].count > 0) {
+                console.log(`Daily assignments already exist for family ${family.name} on ${today}`);
+                continue;
+            }
+
+            // Shuffle chores and assign unique chores to each kid
+            const shuffledChores = [...chores].sort(() => Math.random() - 0.5);
+            const assignedChores = [];
+            
+            for (let i = 0; i < kids.length; i++) {
+                const kid = kids[i];
+                
+                // If we have more kids than chores, cycle through chores
+                const choreIndex = i % shuffledChores.length;
+                let assignedChore = shuffledChores[choreIndex];
+                
+                // If we're cycling and this chore was already assigned today, try to find an unassigned one
+                if (assignedChores.includes(assignedChore.id) && shuffledChores.length > assignedChores.length) {
+                    assignedChore = shuffledChores.find(chore => !assignedChores.includes(chore.id)) || assignedChore;
+                }
+                
+                // Assign the chore
+                await db.run(
+                    'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned, family_id) VALUES (?, ?, ?, ?, ?)',
+                    [kid.id, assignedChore.id, today, assignedChore.points, family.id]
+                );
+                
+                assignedChores.push(assignedChore.id);
+                console.log(`Assigned "${assignedChore.name}" to ${kid.display_name} in ${family.name}`);
+            }
+
+            console.log(`Daily chores assigned successfully for family ${family.name} on ${today}`);
+        }
     } catch (error) {
         console.error('Error in assignDailyChores:', error);
         throw error;
@@ -92,32 +116,52 @@ const assignDailyChores = async () => {
 // Manual dish duty order - configured by admin
 const DISH_DUTY_ORDER = ['Aubrey', 'Mackenzie', 'Zoey'];
 
-// Rotate dish duty weekly
-const rotateDishDuty = async () => {
+// Rotate dish duty weekly (family-scoped)
+const rotateDishDuty = async (familyId = null) => {
     try {
         const weekStart = getWeekStart();
         const weekEnd = getWeekEnd();
         const weekStartStr = formatDate(weekStart);
         const weekEndStr = formatDate(weekEnd);
 
-        // Get all kids
-        const allKids = await db.all('SELECT * FROM users WHERE role = ?', ['kid']);
+        // Get all families or specific family
+        let families = [];
+        if (familyId) {
+            const family = await db.get('SELECT * FROM families WHERE id = ?', [familyId]);
+            if (family) families = [family];
+        } else {
+            families = await db.all('SELECT * FROM families').catch(() => []);
+        }
         
-        if (allKids.length === 0) {
-            console.log('No kids found for dish duty rotation');
+        if (families.length === 0) {
+            console.log('No families found for dish duty rotation');
             return;
         }
+        
+        for (const family of families) {
+            console.log(`🍽️ Processing dish duty for family: ${family.name}`);
+            
+            // Get kids in this family
+            const allKids = await db.all(
+                'SELECT * FROM users WHERE role = ? AND family_id = ?',
+                ['kid', family.id]
+            );
+            
+            if (allKids.length === 0) {
+                console.log(`No kids found in family ${family.name}`);
+                continue;
+            }
 
-        // Check if dish duty already assigned for this week
-        const existingDuty = await db.get(
-            'SELECT * FROM dish_duty WHERE week_start = ? AND week_end = ?',
-            [weekStartStr, weekEndStr]
-        );
+            // Check if dish duty already assigned for this week for this family
+            const existingDuty = await db.get(
+                'SELECT * FROM dish_duty WHERE week_start = ? AND week_end = ? AND family_id = ?',
+                [weekStartStr, weekEndStr, family.id]
+            );
 
-        if (existingDuty) {
-            console.log(`Dish duty already assigned for week ${weekStartStr} - ${weekEndStr}`);
-            return;
-        }
+            if (existingDuty) {
+                console.log(`Dish duty already assigned for family ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
+                continue;
+            }
 
         // Order kids according to the manual rotation order
         const orderedKids = [];
@@ -162,32 +206,40 @@ const rotateDishDuty = async () => {
         // Deactivate all previous assignments
         await db.run('UPDATE dish_duty SET is_active = 0');
 
-        // Create new dish duty assignment
-        await db.run(
-            'INSERT INTO dish_duty (user_id, week_start, week_end, is_active) VALUES (?, ?, ?, ?)',
-            [assignedKid.id, weekStartStr, weekEndStr, 1]
-        );
+            // Create new dish duty assignment
+            await db.run(
+                'INSERT INTO dish_duty (user_id, week_start, week_end, is_active, family_id) VALUES (?, ?, ?, ?, ?)',
+                [assignedKid.id, weekStartStr, weekEndStr, 1, family.id]
+            );
 
-        console.log(`Dish duty assigned to ${assignedKid.display_name} for week ${weekStartStr} - ${weekEndStr} (order: ${DISH_DUTY_ORDER.join(' → ')})`);
+            console.log(`Dish duty assigned to ${assignedKid.display_name} in ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
+        }
     } catch (error) {
         console.error('Error in rotateDishDuty:', error);
         throw error;
     }
 };
 
-// Get current dish duty assignment
-const getCurrentDishDuty = async () => {
+// Get current dish duty assignment (family-scoped)
+const getCurrentDishDuty = async (familyId = null) => {
     try {
         const weekStart = formatDate(getWeekStart());
         const weekEnd = formatDate(getWeekEnd());
 
-        const duty = await db.get(`
+        let query = `
             SELECT dd.*, u.display_name, u.username 
             FROM dish_duty dd
             JOIN users u ON dd.user_id = u.id
             WHERE dd.week_start = ? AND dd.week_end = ? AND dd.is_active = 1
-        `, [weekStart, weekEnd]);
+        `;
+        const params = [weekStart, weekEnd];
+        
+        if (familyId) {
+            query += ' AND dd.family_id = ?';
+            params.push(familyId);
+        }
 
+        const duty = await db.get(query, params);
         return duty;
     } catch (error) {
         console.error('Error getting current dish duty:', error);
@@ -195,8 +247,8 @@ const getCurrentDishDuty = async () => {
     }
 };
 
-// Get daily assignments for a specific date and user
-const getDailyAssignments = async (userId = null, date = null) => {
+// Get daily assignments for a specific date and user (family-scoped)
+const getDailyAssignments = async (userId = null, date = null, familyId = null) => {
     try {
         const targetDate = date || formatDate(new Date());
         let query = `
@@ -207,6 +259,11 @@ const getDailyAssignments = async (userId = null, date = null) => {
             WHERE da.assigned_date = ?
         `;
         const params = [targetDate];
+
+        if (familyId) {
+            query += ' AND da.family_id = ?';
+            params.push(familyId);
+        }
 
         if (userId) {
             query += ' AND da.user_id = ?';
@@ -253,11 +310,14 @@ const completeAssignment = async (assignmentId, userId) => {
             [completedAt, assignmentId]
         );
 
+        // Get family_id for completion history
+        const userFamily = await db.get('SELECT family_id FROM users WHERE id = ?', [assignment.user_id]);
+        
         // Add to completion history
         await db.run(`
-            INSERT INTO completion_history (user_id, chore_id, assignment_type, assignment_id, completed_at, points_earned, week_start)
-            VALUES (?, ?, 'daily', ?, ?, ?, ?)
-        `, [assignment.user_id, assignment.chore_id, assignmentId, completedAt, assignment.points_earned, weekStart]);
+            INSERT INTO completion_history (user_id, chore_id, assignment_type, assignment_id, completed_at, points_earned, week_start, family_id)
+            VALUES (?, ?, 'daily', ?, ?, ?, ?, ?)
+        `, [assignment.user_id, assignment.chore_id, assignmentId, completedAt, assignment.points_earned, weekStart, userFamily?.family_id || null]);
 
         // Add XP for regular chores (if the user is a kid)
         if (user.role === 'kid' || assignment.user_id !== userId) {

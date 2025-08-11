@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/database');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireFamily } = require('../middleware/auth');
 
 // Get all chores (available to all authenticated users)
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, requireFamily, async (req, res) => {
     try {
-        const chores = await db.all('SELECT * FROM chores WHERE is_active = 1 ORDER BY name');
+        const familyId = req.user.family_id;
+        const chores = await db.all(
+            'SELECT * FROM chores WHERE is_active = 1 AND family_id = ? ORDER BY name',
+            [familyId]
+        );
         res.json({ chores });
     } catch (error) {
         console.error('Get chores error:', error);
@@ -15,9 +19,13 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single chore
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, requireFamily, async (req, res) => {
     try {
-        const chore = await db.get('SELECT * FROM chores WHERE id = ? AND is_active = 1', [req.params.id]);
+        const familyId = req.user.family_id;
+        const chore = await db.get(
+            'SELECT * FROM chores WHERE id = ? AND is_active = 1 AND family_id = ?',
+            [req.params.id, familyId]
+        );
         
         if (!chore) {
             return res.status(404).json({ error: 'Chore not found' });
@@ -31,17 +39,18 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new chore (admin only)
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
     try {
         const { name, description, points, is_bonus_available } = req.body;
+        const familyId = req.user.family_id;
 
         if (!name) {
             return res.status(400).json({ error: 'Chore name is required' });
         }
 
         const result = await db.run(
-            'INSERT INTO chores (name, description, points, is_bonus_available) VALUES (?, ?, ?, ?)',
-            [name, description || '', points || 1, is_bonus_available ? 1 : 0]
+            'INSERT INTO chores (name, description, points, is_bonus_available, family_id) VALUES (?, ?, ?, ?, ?)',
+            [name, description || '', points || 1, is_bonus_available ? 1 : 0, familyId]
         );
 
         const chore = await db.get('SELECT * FROM chores WHERE id = ?', [result.id]);
@@ -57,13 +66,17 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Update chore (admin only)
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
     try {
         const { name, description, points, is_active, is_bonus_available } = req.body;
         const choreId = req.params.id;
+        const familyId = req.user.family_id;
 
-        // Check if chore exists
-        const existingChore = await db.get('SELECT * FROM chores WHERE id = ?', [choreId]);
+        // Check if chore exists and belongs to family
+        const existingChore = await db.get(
+            'SELECT * FROM chores WHERE id = ? AND family_id = ?',
+            [choreId, familyId]
+        );
         
         if (!existingChore) {
             return res.status(404).json({ error: 'Chore not found' });
@@ -71,14 +84,15 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
         // Update chore
         await db.run(
-            'UPDATE chores SET name = ?, description = ?, points = ?, is_active = ?, is_bonus_available = ? WHERE id = ?',
+            'UPDATE chores SET name = ?, description = ?, points = ?, is_active = ?, is_bonus_available = ? WHERE id = ? AND family_id = ?',
             [
                 name || existingChore.name,
                 description !== undefined ? description : existingChore.description,
                 points !== undefined ? points : existingChore.points,
                 is_active !== undefined ? is_active : existingChore.is_active,
                 is_bonus_available !== undefined ? (is_bonus_available ? 1 : 0) : existingChore.is_bonus_available,
-                choreId
+                choreId,
+                familyId
             ]
         );
 
@@ -95,11 +109,15 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Delete chore (admin only) - soft delete by setting is_active = 0
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
     try {
         const choreId = req.params.id;
+        const familyId = req.user.family_id;
 
-        const result = await db.run('UPDATE chores SET is_active = 0 WHERE id = ?', [choreId]);
+        const result = await db.run(
+            'UPDATE chores SET is_active = 0 WHERE id = ? AND family_id = ?',
+            [choreId, familyId]
+        );
 
         if (result.changes === 0) {
             return res.status(404).json({ error: 'Chore not found' });

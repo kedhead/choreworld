@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordChangeModal from '../components/PasswordChangeModal';
+import FamilyManagement from '../components/FamilyManagement';
 
 const AdminPanel = () => {
   const { register } = useAuth();
@@ -226,6 +227,7 @@ const AdminPanel = () => {
     { id: 'users', label: 'Manage Users', icon: Users, emoji: '👥' },
     { id: 'assign', label: 'Assign Chores', icon: Calendar, emoji: '📅' },
     { id: 'dishes', label: 'Dish Duty Order', icon: Settings, emoji: '🍽️' },
+    { id: 'family', label: 'Family Settings', icon: Users, emoji: '🏠' },
     { id: 'stats', label: 'Statistics', icon: BarChart3, emoji: '📊' }
   ];
 
@@ -866,6 +868,22 @@ const AdminPanel = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Family Tab */}
+      {activeTab === 'family' && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Family Management</h2>
+                <p className="text-gray-600 mt-2">Manage family members, invite codes, and settings</p>
+              </div>
+              <div className="text-4xl">🏠</div>
+            </div>
+          </div>
+          <FamilyManagement />
         </div>
       )}
 

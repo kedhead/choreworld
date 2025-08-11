@@ -2,18 +2,21 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { FamilyProvider, useFamily } from './contexts/FamilyContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
 import WeeklySummary from './pages/WeeklySummary';
 import LoadingSpinner from './components/LoadingSpinner';
+import FamilySetup from './components/FamilySetup';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, requireFamily = true }) => {
   const { user, loading, isAdmin } = useAuth();
+  const { hasFamily, loading: familyLoading } = useFamily();
 
-  if (loading) {
+  if (loading || familyLoading) {
     return <LoadingSpinner />;
   }
 
@@ -23,6 +26,11 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
   if (adminOnly && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Check if user needs family setup
+  if (requireFamily && !hasFamily) {
+    return <FamilySetup />;
   }
 
   return children;
@@ -50,7 +58,7 @@ const AppContent = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireFamily={true}>
                 <Dashboard />
               </ProtectedRoute>
             } 
@@ -59,7 +67,7 @@ const AppContent = () => {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute adminOnly requireFamily={true}>
                 <AdminPanel />
               </ProtectedRoute>
             } 
@@ -68,7 +76,7 @@ const AppContent = () => {
           <Route 
             path="/summary" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireFamily={true}>
                 <WeeklySummary />
               </ProtectedRoute>
             } 
@@ -93,8 +101,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
-        <Toaster 
+        <FamilyProvider>
+          <AppContent />
+          <Toaster 
           position="top-right"
           toastOptions={{
             duration: 4000,
@@ -120,6 +129,7 @@ function App() {
             },
           }}
         />
+        </FamilyProvider>
       </AuthProvider>
     </Router>
   );

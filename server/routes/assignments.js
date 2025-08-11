@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/database');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireFamily } = require('../middleware/auth');
 const { 
     getCurrentDishDuty, 
     getDailyAssignments, 
@@ -17,9 +17,10 @@ const {
 const { addExperienceToUser, getUserLevelStats, getLeaderboard } = require('../services/leveling');
 
 // Get current dish duty assignment
-router.get('/dish-duty', authenticateToken, async (req, res) => {
+router.get('/dish-duty', authenticateToken, requireFamily, async (req, res) => {
     try {
-        const duty = await getCurrentDishDuty();
+        const familyId = req.user.family_id;
+        const duty = await getCurrentDishDuty(familyId);
         res.json({ duty: duty || null });
     } catch (error) {
         console.error('Get dish duty error:', error);
@@ -28,9 +29,10 @@ router.get('/dish-duty', authenticateToken, async (req, res) => {
 });
 
 // Get daily assignments for current user or all users (admin)
-router.get('/daily', authenticateToken, async (req, res) => {
+router.get('/daily', authenticateToken, requireFamily, async (req, res) => {
     try {
         const { date } = req.query;
+        const familyId = req.user.family_id;
         let userId = null;
 
         // If not admin, only show current user's assignments
@@ -38,7 +40,7 @@ router.get('/daily', authenticateToken, async (req, res) => {
             userId = req.user.id;
         }
 
-        const assignments = await getDailyAssignments(userId, date);
+        const assignments = await getDailyAssignments(userId, date, familyId);
         res.json({ assignments: assignments || [] });
     } catch (error) {
         console.error('Get daily assignments error:', error);
@@ -283,10 +285,12 @@ router.put('/dish-duty/order', authenticateToken, requireAdmin, async (req, res)
 });
 
 // Get available bonus chores
-router.get('/bonus/available', authenticateToken, async (req, res) => {
+router.get('/bonus/available', authenticateToken, requireFamily, async (req, res) => {
     try {
+        const familyId = req.user.family_id;
         const bonusChores = await db.all(
-            'SELECT * FROM chores WHERE is_active = 1 AND is_bonus_available = 1 ORDER BY points DESC'
+            'SELECT * FROM chores WHERE is_active = 1 AND is_bonus_available = 1 AND family_id = ? ORDER BY points DESC',
+            [familyId]
         );
         res.json({ chores: bonusChores });
     } catch (error) {
@@ -296,19 +300,20 @@ router.get('/bonus/available', authenticateToken, async (req, res) => {
 });
 
 // Complete a bonus chore
-router.post('/bonus/complete', authenticateToken, async (req, res) => {
+router.post('/bonus/complete', authenticateToken, requireFamily, async (req, res) => {
     try {
         const { choreId } = req.body;
         const userId = req.user.id;
+        const familyId = req.user.family_id;
         
         if (req.user.role !== 'kid') {
             return res.status(403).json({ error: 'Only kids can complete bonus chores' });
         }
 
-        // Get chore details
+        // Get chore details (must be from same family)
         const chore = await db.get(
-            'SELECT * FROM chores WHERE id = ? AND is_active = 1 AND is_bonus_available = 1',
-            [choreId]
+            'SELECT * FROM chores WHERE id = ? AND is_active = 1 AND is_bonus_available = 1 AND family_id = ?',
+            [choreId, familyId]
         );
         
         if (!chore) {
@@ -323,8 +328,8 @@ router.post('/bonus/complete', authenticateToken, async (req, res) => {
 
         // Record bonus chore completion
         await db.run(
-            'INSERT INTO bonus_chores (user_id, chore_id, completed_date, points_earned, experience_gained, completed_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [userId, choreId, completedDate, chore.points, experienceGained, completedAt]
+            'INSERT INTO bonus_chores (user_id, chore_id, completed_date, points_earned, experience_gained, completed_at, family_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, choreId, completedDate, chore.points, experienceGained, completedAt, familyId]
         );
 
         // Add experience and check for level up

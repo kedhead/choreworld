@@ -53,6 +53,9 @@ class Database {
             console.log('📊 Using existing database');
             // Still fix admin password in case it needs updating
             this.fixAdminPassword();
+            
+            // Check and run multi-family migration if needed
+            this.checkAndRunMigration();
         }
     }
 
@@ -77,6 +80,11 @@ class Database {
             
             // Auto-restore essential users when database resets
             this.restoreEssentialUsers();
+            
+            // Run multi-family migration for new databases
+            setTimeout(() => {
+                this.checkAndRunMigration();
+            }, 1000);
         });
         
         console.log('✅ Database initialized with fresh schema');
@@ -178,6 +186,61 @@ class Database {
         });
     }
 
+    // Check and run multi-family migration if needed
+    async checkAndRunMigration() {
+        try {
+            const { checkMigrationStatus, runMultiFamilyMigration } = require('./migrate-multi-family');
+            const status = await checkMigrationStatus(this);
+            
+            if (!status.migrated) {
+                console.log('🚀 Running multi-family migration...');
+                await runMultiFamilyMigration(this);
+                console.log('✅ Multi-family migration completed');
+            } else {
+                console.log('✅ Multi-family migration already completed');
+            }
+        } catch (error) {
+            console.error('❌ Migration check/run failed:', error);
+        }
+    }
+
+    // Family-scoped query helpers
+    async getFamilyScoped(sql, params = [], familyId = null) {
+        if (familyId && sql.includes('WHERE')) {
+            sql = sql.replace('WHERE', `WHERE family_id = ${familyId} AND`);
+        } else if (familyId) {
+            sql += ` WHERE family_id = ${familyId}`;
+        }
+        return this.get(sql, params);
+    }
+
+    async getAllFamilyScoped(sql, params = [], familyId = null) {
+        if (familyId && sql.includes('WHERE')) {
+            sql = sql.replace('WHERE', `WHERE family_id = ${familyId} AND`);
+        } else if (familyId) {
+            sql += ` WHERE family_id = ${familyId}`;
+        }
+        return this.all(sql, params);
+    }
+
+    async runFamilyScoped(sql, params = [], familyId = null) {
+        // For INSERT statements, add family_id to the values
+        if (familyId && sql.toUpperCase().startsWith('INSERT')) {
+            // This is a simplified approach - in practice, you'd want more sophisticated parsing
+            const insertMatch = sql.match(/INSERT INTO (\w+) \(([^)]+)\) VALUES \(([^)]+)\)/);
+            if (insertMatch) {
+                const [, table, columns, values] = insertMatch;
+                if (!columns.includes('family_id')) {
+                    const newColumns = columns + ', family_id';
+                    const newValues = values + ', ?';
+                    sql = `INSERT INTO ${table} (${newColumns}) VALUES (${newValues})`;
+                    params.push(familyId);
+                }
+            }
+        }
+        return this.run(sql, params);
+    }
+
     // Debug method to check database stats
     async getStats() {
         try {
@@ -185,12 +248,14 @@ class Database {
             const chores = await this.all('SELECT COUNT(*) as count FROM chores');
             const assignments = await this.all('SELECT COUNT(*) as count FROM daily_assignments');
             const dishDuty = await this.all('SELECT COUNT(*) as count FROM dish_duty');
+            const families = await this.all('SELECT COUNT(*) as count FROM families').catch(() => [{ count: 0 }]);
             
             return {
                 users: users[0].count,
                 chores: chores[0].count,
                 daily_assignments: assignments[0].count,
                 dish_duty: dishDuty[0].count,
+                families: families[0].count,
                 db_path: DB_PATH,
                 db_exists: fs.existsSync(DB_PATH)
             };
