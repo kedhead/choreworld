@@ -12,17 +12,21 @@ import {
   Shield,
   Crown,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  Home
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const FamilyManagement = () => {
-  const { family, members, invites, isOwner, createInvite, updateFamilySettings, removeMember, deleteFamily } = useFamily();
+  const { family, members, invites, isOwner, createInvite, updateFamilySettings, removeMember, deleteFamily, leaveFamily, createFamily } = useFamily();
   const { user } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCreateFamily, setShowCreateFamily] = useState(false);
   const [familyName, setFamilyName] = useState(family?.name || '');
+  const [newFamilyName, setNewFamilyName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const copyToClipboard = async (text) => {
     try {
@@ -63,6 +67,36 @@ const FamilyManagement = () => {
 
     if (confirmed) {
       await removeMember(memberId);
+    }
+  };
+
+  const handleCreateNewFamily = async (e) => {
+    e.preventDefault();
+    if (!newFamilyName.trim()) return;
+
+    setIsCreating(true);
+    const result = await createFamily(newFamilyName.trim());
+    setIsCreating(false);
+
+    if (result.success) {
+      setShowCreateFamily(false);
+      setNewFamilyName('');
+      toast.success('New family created! You have left your previous family.');
+    }
+  };
+
+  const handleLeaveAndCreateFamily = async () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to leave "${family.name}" and create a new family?\n\n` +
+      'This will:\n' +
+      '• Remove you from your current family\n' +
+      '• Create a new family with you as owner\n' +
+      '• You will lose access to current family data\n\n' +
+      'Continue?'
+    );
+
+    if (confirmed) {
+      setShowCreateFamily(true);
     }
   };
 
@@ -125,16 +159,90 @@ const FamilyManagement = () => {
             <p className="text-gray-600">Family Code: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{family.family_code}</span></p>
             <p className="text-sm text-gray-500 mt-1">Created on {formatDate(family.created_at)}</p>
           </div>
-          {isOwner && (
+          <div className="flex space-x-3">
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="btn-secondary flex items-center space-x-2"
+              onClick={handleLeaveAndCreateFamily}
+              className="btn-primary flex items-center space-x-2"
+              title="Leave current family and create a new one"
             >
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
+              <Plus className="w-4 h-4" />
+              <span>Create New Family</span>
             </button>
-          )}
+            {isOwner && (
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Create New Family Modal */}
+        {showCreateFamily && (
+          <div className="border-t pt-6 mt-6 bg-blue-50 border-blue-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">Create New Family</h3>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 text-sm mb-1">Important Notice</h4>
+                  <p className="text-yellow-700 text-sm">
+                    Creating a new family will remove you from "{family.name}" and you'll lose access to all its data.
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <form onSubmit={handleCreateNewFamily} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Family Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="input-field max-w-md"
+                  placeholder="e.g., The Johnson Family"
+                  value={newFamilyName}
+                  onChange={(e) => setNewFamilyName(e.target.value)}
+                  maxLength={50}
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={isCreating || !newFamilyName.trim()}
+                  className="btn-success flex items-center space-x-2"
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="spinner"></div>
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Create & Switch</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateFamily(false);
+                    setNewFamilyName('');
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Settings Panel */}
         {showSettings && (

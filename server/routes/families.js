@@ -24,10 +24,12 @@ router.post('/create', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Family name is required' });
         }
 
-        // Check if user already has a family
+        // Check if user already has a family - if so, leave it first
         const userFamily = await db.get('SELECT family_id FROM users WHERE id = ?', [userId]);
         if (userFamily && userFamily.family_id) {
-            return res.status(400).json({ error: 'You already belong to a family' });
+            // Leave current family before creating new one
+            await db.run('UPDATE users SET family_id = NULL WHERE id = ?', [userId]);
+            console.log(`User ${userId} left family ${userFamily.family_id} to create new family`);
         }
 
         // Generate unique family code

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/database');
-const { generateToken, hashPassword, comparePassword, authenticateToken } = require('../middleware/auth');
+const { generateToken, hashPassword, comparePassword, authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // Login
 router.post('/login', async (req, res) => {
@@ -46,13 +46,10 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Register new user (admin only)
-router.post('/register', authenticateToken, async (req, res) => {
+// Register new user (public endpoint)
+router.post('/register', async (req, res) => {
     try {
-        // Only admins can register new users
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Admin access required' });
-        }
+        // Public registration - no authentication required
 
         const { username, password, role, display_name } = req.body;
 
@@ -86,16 +83,60 @@ router.post('/register', authenticateToken, async (req, res) => {
                 username,
                 role,
                 display_name,
-                family_id: req.user.family_id // New users inherit admin's family
+                family_id: null // New users start without a family
             }
         });
-        
-        // Assign new user to the same family as the admin
-        if (req.user.family_id) {
-            await db.run('UPDATE users SET family_id = ? WHERE id = ?', [req.user.family_id, result.id]);
-        }
     } catch (error) {
         console.error('Register error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Create family member (admin only - for adding users to existing family)
+router.post('/create-family-member', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { username, password, role, display_name } = req.body;
+        const familyId = req.user.family_id;
+
+        if (!familyId) {
+            return res.status(400).json({ error: 'You must belong to a family to create family members' });
+        }
+
+        if (!username || !password || !role || !display_name) {
+            return res.status(400).json({ error: 'All fields required' });
+        }
+
+        if (!['admin', 'kid'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        // Check if username already exists
+        const existingUser = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+        
+        if (existingUser) {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
+
+        // Hash password and create user in the same family
+        const passwordHash = await hashPassword(password);
+        
+        const result = await db.run(
+            'INSERT INTO users (username, password_hash, role, display_name, family_id) VALUES (?, ?, ?, ?, ?)',
+            [username, passwordHash, role, display_name, familyId]
+        );
+
+        res.status(201).json({
+            message: 'Family member created successfully',
+            user: {
+                id: result.id,
+                username,
+                role,
+                display_name,
+                family_id: familyId
+            }
+        });
+    } catch (error) {
+        console.error('Create family member error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

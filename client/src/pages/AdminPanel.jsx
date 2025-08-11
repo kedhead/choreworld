@@ -153,20 +153,19 @@ const AdminPanel = () => {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      console.log('Creating user:', newUser);
-      const success = await register(newUser);
-      console.log('User creation result:', success);
-      if (success) {
-        setNewUser({ username: '', password: '', display_name: '', role: 'kid' });
-        setShowNewUserForm(false);
-        // Wait a moment before fetching to ensure the user is created
-        setTimeout(() => {
-          fetchData();
-        }, 500);
-      }
+      console.log('Creating family member:', newUser);
+      const response = await axios.post('/api/auth/create-family-member', newUser);
+      toast.success(`Family member ${newUser.display_name} created successfully! 🎆`);
+      setNewUser({ username: '', password: '', display_name: '', role: 'kid' });
+      setShowNewUserForm(false);
+      // Wait a moment before fetching to ensure the user is created
+      setTimeout(() => {
+        fetchData();
+      }, 500);
     } catch (error) {
       console.error('User creation error:', error);
-      toast.error('Failed to create user');
+      const message = error.response?.data?.error || 'Failed to create family member';
+      toast.error(message);
     }
   };
 
