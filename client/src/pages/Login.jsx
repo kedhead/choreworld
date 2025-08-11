@@ -11,7 +11,8 @@ const Login = () => {
     username: '', 
     password: '', 
     confirmPassword: '', 
-    display_name: '' 
+    display_name: '',
+    role: 'kid' // Default to kid, but allow selection
   });
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
@@ -41,7 +42,7 @@ const Login = () => {
       username: registerData.username.trim(),
       password: registerData.password,
       display_name: registerData.display_name.trim(),
-      role: 'kid' // Register as kid by default
+      role: registerData.role
     });
     
     if (success) {
@@ -241,6 +242,25 @@ const Login = () => {
                     onChange={handleChange}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                  👤 I am a...
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  className="input-field"
+                  value={registerData.role}
+                  onChange={handleChange}
+                >
+                  <option value="kid">Kid/Child 👶</option>
+                  <option value="admin">Parent/Admin 👨‍💼</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Parents can create families and manage chores. Kids can complete chores and earn points.
+                </p>
               </div>
 
               <button

@@ -3,6 +3,31 @@ const router = express.Router();
 const db = require('../database/database');
 const { generateToken, hashPassword, comparePassword, authenticateToken, requireAdmin } = require('../middleware/auth');
 
+// Helper function to check if user is admin of their family
+const requireFamilyAdmin = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const userInfo = await db.get(
+            'SELECT family_id, role FROM users WHERE id = ?', 
+            [userId]
+        );
+        
+        if (!userInfo || !userInfo.family_id) {
+            return res.status(400).json({ error: 'You must belong to a family' });
+        }
+        
+        if (userInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can perform this action' });
+        }
+        
+        req.user.family_id = userInfo.family_id;
+        next();
+    } catch (error) {
+        console.error('Family admin check error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
 // Login
 router.post('/login', async (req, res) => {
     try {
@@ -92,8 +117,8 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Create family member (admin only - for adding users to existing family)
-router.post('/create-family-member', authenticateToken, requireAdmin, async (req, res) => {
+// Create family member (family admin only - for adding users to existing family)
+router.post('/create-family-member', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const { username, password, role, display_name } = req.body;
         const familyId = req.user.family_id;

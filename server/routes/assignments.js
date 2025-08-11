@@ -16,6 +16,31 @@ const {
 } = require('../services/scheduler');
 const { addExperienceToUser, getUserLevelStats, getLeaderboard } = require('../services/leveling');
 
+// Helper function to check if user is admin of their family
+const requireFamilyAdmin = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const userInfo = await db.get(
+            'SELECT family_id, role FROM users WHERE id = ?', 
+            [userId]
+        );
+        
+        if (!userInfo || !userInfo.family_id) {
+            return res.status(400).json({ error: 'You must belong to a family' });
+        }
+        
+        if (userInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can perform this action' });
+        }
+        
+        req.user.family_id = userInfo.family_id;
+        next();
+    } catch (error) {
+        console.error('Family admin check error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
 // Get current dish duty assignment
 router.get('/dish-duty', authenticateToken, requireFamily, async (req, res) => {
     try {
@@ -59,8 +84,8 @@ router.post('/daily/:id/complete', authenticateToken, async (req, res) => {
     }
 });
 
-// Manually trigger daily chore assignment (admin only)
-router.post('/daily/assign', authenticateToken, requireAdmin, async (req, res) => {
+// Manually trigger daily chore assignment (family admin only)
+router.post('/daily/assign', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         await assignDailyChores();
         res.json({ message: 'Daily chores assigned successfully' });
@@ -70,8 +95,8 @@ router.post('/daily/assign', authenticateToken, requireAdmin, async (req, res) =
     }
 });
 
-// Manually assign specific chore to specific user for specific date (admin only)
-router.post('/daily/assign-manual', authenticateToken, requireAdmin, async (req, res) => {
+// Manually assign specific chore to specific user for specific date (family admin only)
+router.post('/daily/assign-manual', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const { userId, choreId, assignedDate } = req.body;
         
@@ -125,8 +150,8 @@ router.post('/daily/assign-manual', authenticateToken, requireAdmin, async (req,
     }
 });
 
-// Delete/unassign a daily assignment (admin only)
-router.delete('/daily/:id', authenticateToken, requireAdmin, async (req, res) => {
+// Delete/unassign a daily assignment (family admin only)
+router.delete('/daily/:id', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const assignmentId = req.params.id;
         
@@ -143,8 +168,8 @@ router.delete('/daily/:id', authenticateToken, requireAdmin, async (req, res) =>
     }
 });
 
-// Manually trigger dish duty rotation (admin only)
-router.post('/dish-duty/rotate', authenticateToken, requireAdmin, async (req, res) => {
+// Manually trigger dish duty rotation (family admin only)
+router.post('/dish-duty/rotate', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         await rotateDishDuty();
         res.json({ message: 'Dish duty rotated successfully' });
@@ -253,8 +278,8 @@ router.get('/weeks', authenticateToken, async (req, res) => {
     }
 });
 
-// Get dish duty order configuration (admin only)
-router.get('/dish-duty/order', authenticateToken, requireAdmin, async (req, res) => {
+// Get dish duty order configuration (family admin only)
+router.get('/dish-duty/order', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const order = getDishDutyOrder();
         res.json({ order });
@@ -264,8 +289,8 @@ router.get('/dish-duty/order', authenticateToken, requireAdmin, async (req, res)
     }
 });
 
-// Update dish duty order (admin only)
-router.put('/dish-duty/order', authenticateToken, requireAdmin, async (req, res) => {
+// Update dish duty order (family admin only)
+router.put('/dish-duty/order', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const { order } = req.body;
         

@@ -3,6 +3,31 @@ const router = express.Router();
 const db = require('../database/database');
 const { authenticateToken, requireAdmin, requireFamily } = require('../middleware/auth');
 
+// Helper function to check if user is admin of their family
+const requireFamilyAdmin = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const userInfo = await db.get(
+            'SELECT family_id, role FROM users WHERE id = ?', 
+            [userId]
+        );
+        
+        if (!userInfo || !userInfo.family_id) {
+            return res.status(400).json({ error: 'You must belong to a family' });
+        }
+        
+        if (userInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can perform this action' });
+        }
+        
+        req.user.family_id = userInfo.family_id;
+        next();
+    } catch (error) {
+        console.error('Family admin check error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
 // Get all chores (available to all authenticated users)
 router.get('/', authenticateToken, requireFamily, async (req, res) => {
     try {
@@ -38,8 +63,8 @@ router.get('/:id', authenticateToken, requireFamily, async (req, res) => {
     }
 });
 
-// Create new chore (admin only)
-router.post('/', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
+// Create new chore (family admin only)
+router.post('/', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const { name, description, points, is_bonus_available } = req.body;
         const familyId = req.user.family_id;
@@ -65,8 +90,8 @@ router.post('/', authenticateToken, requireAdmin, requireFamily, async (req, res
     }
 });
 
-// Update chore (admin only)
-router.put('/:id', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
+// Update chore (family admin only)
+router.put('/:id', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const { name, description, points, is_active, is_bonus_available } = req.body;
         const choreId = req.params.id;
@@ -108,8 +133,8 @@ router.put('/:id', authenticateToken, requireAdmin, requireFamily, async (req, r
     }
 });
 
-// Delete chore (admin only) - soft delete by setting is_active = 0
-router.delete('/:id', authenticateToken, requireAdmin, requireFamily, async (req, res) => {
+// Delete chore (family admin only) - soft delete by setting is_active = 0
+router.delete('/:id', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
         const choreId = req.params.id;
         const familyId = req.user.family_id;

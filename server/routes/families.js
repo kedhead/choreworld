@@ -14,8 +14,8 @@ function generateInviteCode() {
     return crypto.randomBytes(8).toString('hex').toUpperCase();
 }
 
-// Create new family (admin only)
-router.post('/create', authenticateToken, requireAdmin, async (req, res) => {
+// Create new family (any authenticated user)
+router.post('/create', authenticateToken, async (req, res) => {
     try {
         const { name } = req.body;
         const userId = req.user.id;
@@ -54,8 +54,8 @@ router.post('/create', authenticateToken, requireAdmin, async (req, res) => {
 
         const familyId = familyResult.id;
 
-        // Assign creator to the family
-        await db.run('UPDATE users SET family_id = ? WHERE id = ?', [familyId, userId]);
+        // Assign creator to the family and make them admin
+        await db.run('UPDATE users SET family_id = ?, role = ? WHERE id = ?', [familyId, 'admin', userId]);
 
         // Create initial invite code
         const inviteCode = generateInviteCode();
@@ -185,16 +185,20 @@ router.get('/current', authenticateToken, async (req, res) => {
     }
 });
 
-// Create new invite code (admin only)
-router.post('/invite', authenticateToken, requireAdmin, async (req, res) => {
+// Create new invite code (family admin only)
+router.post('/invite', authenticateToken, async (req, res) => {
     try {
         const { maxUses = 5, expiryDays = 7 } = req.body;
         const userId = req.user.id;
 
-        // Get user's family
-        const userFamily = await db.get('SELECT family_id FROM users WHERE id = ?', [userId]);
-        if (!userFamily || !userFamily.family_id) {
+        // Get user's family and role
+        const userInfo = await db.get('SELECT family_id, role FROM users WHERE id = ?', [userId]);
+        if (!userInfo || !userInfo.family_id) {
             return res.status(400).json({ error: 'You must belong to a family to create invites' });
+        }
+        
+        if (userInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can create invite codes' });
         }
 
         // Generate invite code
@@ -204,7 +208,7 @@ router.post('/invite', authenticateToken, requireAdmin, async (req, res) => {
 
         await db.run(
             'INSERT INTO family_invites (family_id, invite_code, created_by, expires_at, max_uses) VALUES (?, ?, ?, ?, ?)',
-            [userFamily.family_id, inviteCode, userId, expiresAt.toISOString(), parseInt(maxUses)]
+            [userInfo.family_id, inviteCode, userId, expiresAt.toISOString(), parseInt(maxUses)]
         );
 
         res.status(201).json({
@@ -221,8 +225,8 @@ router.post('/invite', authenticateToken, requireAdmin, async (req, res) => {
     }
 });
 
-// Update family settings (admin only)
-router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
+// Update family settings (family admin only)
+router.put('/settings', authenticateToken, async (req, res) => {
     try {
         const { name } = req.body;
         const userId = req.user.id;
@@ -231,16 +235,20 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Family name is required' });
         }
 
-        // Get user's family
-        const userFamily = await db.get('SELECT family_id FROM users WHERE id = ?', [userId]);
-        if (!userFamily || !userFamily.family_id) {
+        // Get user's family and role
+        const userInfo = await db.get('SELECT family_id, role FROM users WHERE id = ?', [userId]);
+        if (!userInfo || !userInfo.family_id) {
             return res.status(400).json({ error: 'You must belong to a family' });
+        }
+        
+        if (userInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can update family settings' });
         }
 
         // Update family name
         await db.run(
             'UPDATE families SET name = ? WHERE id = ?',
-            [name.trim(), userFamily.family_id]
+            [name.trim(), userInfo.family_id]
         );
 
         res.json({ message: 'Family settings updated successfully' });
@@ -250,8 +258,8 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
     }
 });
 
-// Remove user from family (admin only)
-router.post('/remove-member', authenticateToken, requireAdmin, async (req, res) => {
+// Remove user from family (family admin only)
+router.post('/remove-member', authenticateToken, async (req, res) => {
     try {
         const { userId: targetUserId } = req.body;
         const adminUserId = req.user.id;
@@ -260,10 +268,14 @@ router.post('/remove-member', authenticateToken, requireAdmin, async (req, res) 
             return res.status(400).json({ error: 'User ID is required' });
         }
 
-        // Get admin's family
-        const adminFamily = await db.get('SELECT family_id FROM users WHERE id = ?', [adminUserId]);
-        if (!adminFamily || !adminFamily.family_id) {
+        // Get admin's family and role
+        const adminInfo = await db.get('SELECT family_id, role FROM users WHERE id = ?', [adminUserId]);
+        if (!adminInfo || !adminInfo.family_id) {
             return res.status(400).json({ error: 'You must belong to a family' });
+        }
+        
+        if (adminInfo.role !== 'admin') {
+            return res.status(403).json({ error: 'Only family admins can remove members' });
         }
 
         // Get target user's family
@@ -276,7 +288,7 @@ router.post('/remove-member', authenticateToken, requireAdmin, async (req, res) 
             return res.status(404).json({ error: 'User not found' });
         }
 
-        if (targetUser.family_id !== adminFamily.family_id) {
+        if (targetUser.family_id !== adminInfo.family_id) {
             return res.status(403).json({ error: 'User is not in your family' });
         }
 
@@ -335,8 +347,8 @@ router.post('/leave', authenticateToken, async (req, res) => {
     }
 });
 
-// Delete family (admin only - removes all members and data)
-router.delete('/', authenticateToken, requireAdmin, async (req, res) => {
+// Delete family (family owner only - removes all members and data)
+router.delete('/', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
 
