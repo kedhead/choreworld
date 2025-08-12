@@ -212,6 +212,19 @@ class Database {
             } else {
                 console.log('✅ Payment tracking migration already completed');
             }
+
+            // Fix any assignments missing family_id (one-time fix)
+            console.log('🔧 Checking for assignments missing family_id...');
+            const fixResult = await this.run(`
+                UPDATE daily_assignments 
+                SET family_id = (SELECT family_id FROM users WHERE users.id = daily_assignments.user_id)
+                WHERE family_id IS NULL AND user_id IN (SELECT id FROM users WHERE family_id IS NOT NULL)
+            `);
+            if (fixResult.changes > 0) {
+                console.log(`✅ Fixed ${fixResult.changes} assignments with missing family_id`);
+            } else {
+                console.log('✅ All assignments have proper family_id');
+            }
         } catch (error) {
             console.error('❌ Migration check/run failed:', error.message);
             console.error('❌ Migration stack trace:', error.stack);

@@ -116,6 +116,8 @@ router.post('/daily/assign-manual', authenticateToken, requireFamilyAdmin, async
             return res.status(400).json({ error: 'Chore not found or not active' });
         }
 
+        const familyId = req.user.family_id;
+
         // Check if assignment already exists for this user and date
         const existingAssignment = await db.get(
             'SELECT * FROM daily_assignments WHERE user_id = ? AND assigned_date = ?',
@@ -123,16 +125,16 @@ router.post('/daily/assign-manual', authenticateToken, requireFamilyAdmin, async
         );
 
         if (existingAssignment) {
-            // Update existing assignment
+            // Update existing assignment - also ensure family_id is set
             await db.run(
-                'UPDATE daily_assignments SET chore_id = ?, points_earned = ?, is_completed = 0, completed_at = NULL WHERE user_id = ? AND assigned_date = ?',
-                [choreId, chore.points, userId, assignedDate]
+                'UPDATE daily_assignments SET chore_id = ?, points_earned = ?, is_completed = 0, completed_at = NULL, family_id = ? WHERE user_id = ? AND assigned_date = ?',
+                [choreId, chore.points, familyId, userId, assignedDate]
             );
         } else {
-            // Create new assignment
+            // Create new assignment with family_id
             await db.run(
-                'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned) VALUES (?, ?, ?, ?)',
-                [userId, choreId, assignedDate, chore.points]
+                'INSERT INTO daily_assignments (user_id, chore_id, assigned_date, points_earned, family_id) VALUES (?, ?, ?, ?, ?)',
+                [userId, choreId, assignedDate, chore.points, familyId]
             );
         }
 

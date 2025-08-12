@@ -63,6 +63,15 @@ async function runMultiFamilyMigration(db) {
         console.log('📝 Step 5: Migrating existing assignments...');
         const assignmentResult = await db.run('UPDATE daily_assignments SET family_id = ? WHERE family_id IS NULL', [defaultFamilyId]);
         console.log(`✅ Assigned ${assignmentResult.changes} daily assignments to default family`);
+        
+        // Step 5b: Fix any assignments that might have been created without family_id after initial migration
+        console.log('📝 Step 5b: Fixing assignments with missing family_id...');
+        const fixAssignmentsResult = await db.run(`
+            UPDATE daily_assignments 
+            SET family_id = (SELECT family_id FROM users WHERE users.id = daily_assignments.user_id)
+            WHERE family_id IS NULL AND user_id IN (SELECT id FROM users WHERE family_id IS NOT NULL)
+        `);
+        console.log(`✅ Fixed ${fixAssignmentsResult.changes} assignments with missing family_id`);
 
         // Step 6: Assign all existing dish duties to default family
         console.log('📝 Step 6: Migrating existing dish duties...');
