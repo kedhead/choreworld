@@ -173,7 +173,8 @@ router.delete('/daily/:id', authenticateToken, requireFamilyAdmin, async (req, r
 // Manually trigger dish duty rotation (family admin only)
 router.post('/dish-duty/rotate', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {
-        await rotateDishDuty();
+        const familyId = req.user.family_id;
+        await rotateDishDuty(familyId);
         res.json({ message: 'Dish duty rotated successfully' });
     } catch (error) {
         console.error('Manual dish duty rotation error:', error);

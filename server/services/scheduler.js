@@ -186,25 +186,26 @@ const rotateDishDuty = async (familyId = null) => {
             return;
         }
 
-        // Get the last assigned user to determine next in rotation
-        const lastAssignment = await db.get(
-            'SELECT * FROM dish_duty ORDER BY created_at DESC LIMIT 1'
-        );
+            // Get the last assigned user for this family to determine next in rotation
+            const lastAssignment = await db.get(
+                'SELECT * FROM dish_duty WHERE family_id = ? ORDER BY created_at DESC LIMIT 1',
+                [family.id]
+            );
 
-        let nextKidIndex = 0;
-        
-        if (lastAssignment) {
-            // Find the index of the last assigned kid in our ordered list
-            const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
-            if (lastKidIndex !== -1) {
-                nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
+            let nextKidIndex = 0;
+            
+            if (lastAssignment) {
+                // Find the index of the last assigned kid in our ordered list
+                const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
+                if (lastKidIndex !== -1) {
+                    nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
+                }
             }
-        }
 
-        const assignedKid = orderedKids[nextKidIndex];
+            const assignedKid = orderedKids[nextKidIndex];
 
-        // Deactivate all previous assignments
-        await db.run('UPDATE dish_duty SET is_active = 0');
+            // Deactivate previous assignments for this family only
+            await db.run('UPDATE dish_duty SET is_active = 0 WHERE family_id = ?', [family.id]);
 
             // Create new dish duty assignment
             await db.run(
