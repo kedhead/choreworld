@@ -163,10 +163,10 @@ const rotateDishDuty = async (familyId = null) => {
                 continue;
             }
 
-        // Order kids according to the manual rotation order
+        // Order kids according to the manual rotation order, with fallback to all kids
         const orderedKids = [];
         
-        // First, add kids in the specified order
+        // First, add kids in the specified order (if they exist in this family)
         for (const name of DISH_DUTY_ORDER) {
             const kid = allKids.find(k => k.display_name === name);
             if (kid) {
@@ -182,8 +182,8 @@ const rotateDishDuty = async (familyId = null) => {
         }
 
         if (orderedKids.length === 0) {
-            console.log('No kids found matching the dish duty order configuration');
-            return;
+            console.log(`No kids found in family ${family.name} for dish duty assignment`);
+            continue;
         }
 
             // Get the last assigned user for this family to determine next in rotation
