@@ -1,6 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
+async function checkWeeklyChoresMigrationStatus(db) {
+    try {
+        // Check if weekly_chore_types table exists
+        const tableCheck = await db.get(`
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='weekly_chore_types'
+        `);
+        
+        return { migrated: !!tableCheck };
+    } catch (error) {
+        return { migrated: false };
+    }
+}
+
 async function migrateWeeklyChores(db) {
     console.log('🚀 Starting weekly chores migration...');
     
@@ -13,7 +27,7 @@ async function migrateWeeklyChores(db) {
         
         for (const statement of statements) {
             if (statement.trim()) {
-                await db.exec(statement);
+                await db.run(statement);
             }
         }
         console.log('✅ Schema migration completed');
@@ -100,4 +114,4 @@ async function migrateWeeklyChores(db) {
     }
 }
 
-module.exports = { migrateWeeklyChores };
+module.exports = { migrateWeeklyChores, checkWeeklyChoresMigrationStatus };

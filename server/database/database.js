@@ -214,12 +214,15 @@ class Database {
             }
             
             // Run weekly chores migration
-            const { migrateWeeklyChores } = require('./migrate-weekly-chores');
-            try {
+            const { migrateWeeklyChores, checkWeeklyChoresMigrationStatus } = require('./migrate-weekly-chores');
+            const weeklyStatus = await checkWeeklyChoresMigrationStatus(this);
+            
+            if (!weeklyStatus.migrated) {
+                console.log('🚀 Running weekly chores migration...');
                 await migrateWeeklyChores(this);
                 console.log('✅ Weekly chores migration completed');
-            } catch (error) {
-                console.log('✅ Weekly chores migration already completed or not needed');
+            } else {
+                console.log('✅ Weekly chores migration already completed');
             }
 
             // Fix any assignments missing family_id (one-time fix)
