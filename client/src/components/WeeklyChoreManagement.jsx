@@ -133,9 +133,20 @@ const WeeklyChoreManagement = () => {
     try {
       const userIds = rotationOrder.map(kid => kid.id);
       await axios.put(`/api/weekly-chores/types/${managingRotation.id}/rotation`, { userIds });
-      toast.success('Rotation order updated! 🔄');
+      
+      // Ask user if they want to rotate immediately to apply the new order
+      const rotateNow = confirm('Rotation order updated! Do you want to rotate this chore now to apply the new order?');
+      
+      if (rotateNow) {
+        await axios.post(`/api/weekly-chores/rotate/${managingRotation.id}`);
+        toast.success('Rotation order updated and chore rotated! 🔄');
+      } else {
+        toast.success('Rotation order updated! The new order will apply on the next rotation. 🔄');
+      }
+      
       setManagingRotation(null);
       setRotationOrder([]);
+      fetchData(); // Refresh to show updated assignments
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to update rotation order');
     }
@@ -196,13 +207,25 @@ const WeeklyChoreManagement = () => {
                     <span className="text-2xl">{assignment.icon}</span>
                     <h4 className="font-semibold text-blue-800">{assignment.chore_type_name}</h4>
                   </div>
-                  <button
-                    onClick={() => rotateWeeklyChores(assignment.weekly_chore_type_id)}
-                    className="text-blue-600 hover:text-blue-800"
-                    title="Rotate this chore"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
+                  <div className="flex space-x-1">
+                    <button
+                      onClick={() => {
+                        const choreType = choreTypes.find(ct => ct.id === assignment.weekly_chore_type_id);
+                        if (choreType) openRotationManager(choreType);
+                      }}
+                      className="text-purple-600 hover:text-purple-800"
+                      title="Change rotation order"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => rotateWeeklyChores(assignment.weekly_chore_type_id)}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Rotate this chore now"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <p className="text-lg font-bold text-blue-900">{assignment.display_name}</p>
                 <p className="text-sm text-blue-600">{assignment.chore_type_description}</p>
