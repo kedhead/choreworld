@@ -13,9 +13,10 @@ const choreRoutes = require('./routes/chores');
 const assignmentRoutes = require('./routes/assignments');
 const familyRoutes = require('./routes/families');
 const paymentRoutes = require('./routes/payments');
+const weeklyChoreRoutes = require('./routes/weekly-chores');
 
 // Import services
-const { assignDailyChores, rotateDishDuty } = require('./services/scheduler');
+const { assignDailyChores, rotateDishDuty, rotateWeeklyChores } = require('./services/scheduler');
 
 // Middleware
 const corsOptions = {
@@ -52,6 +53,7 @@ app.use('/api/chores', choreRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/families', familyRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/weekly-chores', weeklyChoreRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -67,7 +69,8 @@ app.get('/api/health', (req, res) => {
             '/api/assignments/bonus/available',
             '/api/assignments/leaderboard',
             '/api/families/*',
-            '/api/payments/*'
+            '/api/payments/*',
+            '/api/weekly-chores/*'
         ]
     });
 });
@@ -118,14 +121,14 @@ cron.schedule('0 1 * * *', async () => {
     }
 });
 
-// Schedule dish duty rotation every Monday at 12:01 AM
+// Schedule weekly chore rotation every Monday at 12:01 AM
 cron.schedule('1 0 * * 1', async () => {
-    console.log('Running weekly dish duty rotation...');
+    console.log('Running weekly chore rotation...');
     try {
-        await rotateDishDuty();
-        console.log('Dish duty rotated successfully');
+        await rotateWeeklyChores();
+        console.log('Weekly chores rotated successfully');
     } catch (error) {
-        console.error('Error rotating dish duty:', error);
+        console.error('Error rotating weekly chores:', error);
     }
 });
 
@@ -133,7 +136,7 @@ cron.schedule('1 0 * * 1', async () => {
 app.listen(PORT, () => {
     console.log(`🎉 ChoreWorld server running on port ${PORT}`);
     console.log(`📅 Daily chore scheduler active (runs at 1:00 AM)`);
-    console.log(`🍽️  Dish duty rotation active (runs Mondays at 12:01 AM)`);
+    console.log(`🏠 Weekly chore rotation active (runs Mondays at 12:01 AM)`);
     console.log(`🏠 Working directory: ${process.cwd()}`);
     console.log(`🗏️ Environment: ${process.env.NODE_ENV || 'development'}`);
     

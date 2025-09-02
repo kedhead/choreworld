@@ -113,11 +113,8 @@ const assignDailyChores = async (familyId = null) => {
     }
 };
 
-// Manual dish duty order - configured by admin
-const DISH_DUTY_ORDER = ['Aubrey', 'Mackenzie', 'Zoey'];
-
-// Rotate dish duty weekly (family-scoped)
-const rotateDishDuty = async (familyId = null) => {
+// Rotate weekly chores for all active chore types (family-scoped)
+const rotateWeeklyChores = async (familyId = null, choreTypeId = null) => {
     try {
         const weekStart = getWeekStart();
         const weekEnd = getWeekEnd();
@@ -134,12 +131,12 @@ const rotateDishDuty = async (familyId = null) => {
         }
         
         if (families.length === 0) {
-            console.log('No families found for dish duty rotation');
+            console.log('No families found for weekly chore rotation');
             return;
         }
         
         for (const family of families) {
-            console.log(`🍽️ Processing dish duty for family: ${family.name}`);
+            console.log(`🏠 Processing weekly chores for family: ${family.name}`);
             
             // Get kids in this family
             const allKids = await db.all(
@@ -152,98 +149,148 @@ const rotateDishDuty = async (familyId = null) => {
                 continue;
             }
 
-            // Check if dish duty already assigned for this week for this family
-            const existingDuty = await db.get(
-                'SELECT * FROM dish_duty WHERE week_start = ? AND week_end = ? AND family_id = ?',
-                [weekStartStr, weekEndStr, family.id]
-            );
-
-            if (existingDuty) {
-                console.log(`Dish duty already assigned for family ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
+            // Get active weekly chore types for this family
+            let choreTypes = [];
+            if (choreTypeId) {
+                const choreType = await db.get(
+                    'SELECT * FROM weekly_chore_types WHERE id = ? AND family_id = ? AND is_active = 1',
+                    [choreTypeId, family.id]
+                );
+                if (choreType) choreTypes = [choreType];
+            } else {
+                choreTypes = await db.all(
+                    'SELECT * FROM weekly_chore_types WHERE family_id = ? AND is_active = 1',
+                    [family.id]
+                );
+            }
+            
+            if (choreTypes.length === 0) {
+                console.log(`No active weekly chore types found for family ${family.name}`);
                 continue;
             }
 
-        // Order kids according to the manual rotation order, with fallback to all kids
-        const orderedKids = [];
-        
-        // First, add kids in the specified order (if they exist in this family)
-        for (const name of DISH_DUTY_ORDER) {
-            const kid = allKids.find(k => k.display_name === name);
-            if (kid) {
-                orderedKids.push(kid);
-            }
-        }
-        
-        // Add any remaining kids not in the specified order (fallback)
-        for (const kid of allKids) {
-            if (!orderedKids.find(k => k.id === kid.id)) {
-                orderedKids.push(kid);
-            }
-        }
+            // Process each weekly chore type
+            for (const choreType of choreTypes) {
+                console.log(`  Processing ${choreType.name} for family ${family.name}`);
+                
+                // Check if assignment already exists for this week
+                const existingAssignment = await db.get(
+                    'SELECT * FROM weekly_assignments WHERE weekly_chore_type_id = ? AND week_start = ? AND week_end = ? AND family_id = ?',
+                    [choreType.id, weekStartStr, weekEndStr, family.id]
+                );
 
-        if (orderedKids.length === 0) {
-            console.log(`No kids found in family ${family.name} for dish duty assignment`);
-            continue;
-        }
-
-            // Get the last assigned user for this family to determine next in rotation
-            const lastAssignment = await db.get(
-                'SELECT * FROM dish_duty WHERE family_id = ? ORDER BY created_at DESC LIMIT 1',
-                [family.id]
-            );
-
-            let nextKidIndex = 0;
-            
-            if (lastAssignment) {
-                // Find the index of the last assigned kid in our ordered list
-                const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
-                if (lastKidIndex !== -1) {
-                    nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
+                if (existingAssignment) {
+                    console.log(`  ${choreType.name} already assigned for family ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
+                    continue;
                 }
+
+                // Get rotation order for this chore type
+                const rotationOrder = await db.all(
+                    'SELECT wro.*, u.display_name FROM weekly_rotation_orders wro JOIN users u ON wro.user_id = u.id WHERE wro.weekly_chore_type_id = ? AND wro.family_id = ? ORDER BY wro.rotation_order',
+                    [choreType.id, family.id]
+                );
+
+                let orderedKids = [];
+                if (rotationOrder.length > 0) {
+                    // Use configured rotation order
+                    orderedKids = rotationOrder.map(order => ({
+                        id: order.user_id,
+                        display_name: order.display_name
+                    }));
+                } else {
+                    // Fallback to all kids in creation order
+                    orderedKids = allKids;
+                }
+
+                if (orderedKids.length === 0) {
+                    console.log(`  No kids available for ${choreType.name} in family ${family.name}`);
+                    continue;
+                }
+
+                // Get the last assigned user for this chore type to determine next in rotation
+                const lastAssignment = await db.get(
+                    'SELECT * FROM weekly_assignments WHERE weekly_chore_type_id = ? AND family_id = ? ORDER BY created_at DESC LIMIT 1',
+                    [choreType.id, family.id]
+                );
+
+                let nextKidIndex = 0;
+                
+                if (lastAssignment) {
+                    // Find the index of the last assigned kid in our ordered list
+                    const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
+                    if (lastKidIndex !== -1) {
+                        nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
+                    }
+                }
+
+                const assignedKid = orderedKids[nextKidIndex];
+
+                // Deactivate previous assignments for this chore type and family
+                await db.run(
+                    'UPDATE weekly_assignments SET is_active = 0 WHERE weekly_chore_type_id = ? AND family_id = ?',
+                    [choreType.id, family.id]
+                );
+
+                // Create new weekly assignment
+                await db.run(
+                    'INSERT INTO weekly_assignments (weekly_chore_type_id, user_id, family_id, week_start, week_end, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+                    [choreType.id, assignedKid.id, family.id, weekStartStr, weekEndStr, 1]
+                );
+
+                console.log(`  ✅ ${choreType.name} assigned to ${assignedKid.display_name} in ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
             }
-
-            const assignedKid = orderedKids[nextKidIndex];
-
-            // Deactivate previous assignments for this family only
-            await db.run('UPDATE dish_duty SET is_active = 0 WHERE family_id = ?', [family.id]);
-
-            // Create new dish duty assignment
-            await db.run(
-                'INSERT INTO dish_duty (user_id, week_start, week_end, is_active, family_id) VALUES (?, ?, ?, ?, ?)',
-                [assignedKid.id, weekStartStr, weekEndStr, 1, family.id]
-            );
-
-            console.log(`Dish duty assigned to ${assignedKid.display_name} in ${family.name} for week ${weekStartStr} - ${weekEndStr}`);
         }
     } catch (error) {
-        console.error('Error in rotateDishDuty:', error);
+        console.error('Error in rotateWeeklyChores:', error);
         throw error;
     }
 };
 
-// Get current dish duty assignment (family-scoped)
-const getCurrentDishDuty = async (familyId = null) => {
+// Legacy function for backward compatibility - will be removed after migration
+const rotateDishDuty = async (familyId = null) => {
+    console.log('⚠️  rotateDishDuty is deprecated - using rotateWeeklyChores instead');
+    return await rotateWeeklyChores(familyId);
+};
+
+// Get current weekly assignments (family-scoped) - replaces getCurrentDishDuty
+const getCurrentWeeklyAssignments = async (familyId = null) => {
     try {
         const weekStart = formatDate(getWeekStart());
         const weekEnd = formatDate(getWeekEnd());
 
         let query = `
-            SELECT dd.*, u.display_name, u.username 
-            FROM dish_duty dd
-            JOIN users u ON dd.user_id = u.id
-            WHERE dd.week_start = ? AND dd.week_end = ? AND dd.is_active = 1
+            SELECT wa.*, wct.name as chore_type_name, wct.description as chore_type_description, wct.icon, u.display_name, u.username 
+            FROM weekly_assignments wa
+            JOIN weekly_chore_types wct ON wa.weekly_chore_type_id = wct.id
+            JOIN users u ON wa.user_id = u.id
+            WHERE wa.week_start = ? AND wa.week_end = ? AND wa.is_active = 1
         `;
         const params = [weekStart, weekEnd];
         
         if (familyId) {
-            query += ' AND dd.family_id = ?';
+            query += ' AND wa.family_id = ?';
             params.push(familyId);
         }
 
-        const duty = await db.get(query, params);
-        return duty;
+        query += ' ORDER BY wct.name';
+
+        const assignments = await db.all(query, params);
+        return assignments;
     } catch (error) {
-        console.error('Error getting current dish duty:', error);
+        console.error('Error getting current weekly assignments:', error);
+        throw error;
+    }
+};
+
+// Legacy function for backward compatibility - will be removed after migration
+const getCurrentDishDuty = async (familyId = null) => {
+    try {
+        const assignments = await getCurrentWeeklyAssignments(familyId);
+        // Return first assignment that matches "Dish Duty" for backward compatibility
+        const dishDuty = assignments.find(a => a.chore_type_name === 'Dish Duty');
+        return dishDuty || null;
+    } catch (error) {
+        console.error('Error getting current dish duty (legacy):', error);
         throw error;
     }
 };
@@ -342,34 +389,73 @@ const completeAssignment = async (assignmentId, userId) => {
     }
 };
 
-// Get dish duty order configuration
-const getDishDutyOrder = () => {
-    return DISH_DUTY_ORDER;
+// Get rotation order for a specific weekly chore type
+const getWeeklyChoreRotationOrder = async (choreTypeId, familyId) => {
+    try {
+        const rotationOrder = await db.all(
+            'SELECT wro.*, u.display_name FROM weekly_rotation_orders wro JOIN users u ON wro.user_id = u.id WHERE wro.weekly_chore_type_id = ? AND wro.family_id = ? ORDER BY wro.rotation_order',
+            [choreTypeId, familyId]
+        );
+        return rotationOrder;
+    } catch (error) {
+        console.error('Error getting weekly chore rotation order:', error);
+        throw error;
+    }
 };
 
-// Update dish duty order (admin only)
-const updateDishDutyOrder = (newOrder) => {
-    if (!Array.isArray(newOrder) || newOrder.length === 0) {
-        throw new Error('Invalid order - must be a non-empty array');
+// Update rotation order for a specific weekly chore type
+const updateWeeklyChoreRotationOrder = async (choreTypeId, familyId, newOrder) => {
+    try {
+        if (!Array.isArray(newOrder) || newOrder.length === 0) {
+            throw new Error('Invalid order - must be a non-empty array of user IDs');
+        }
+        
+        // Delete existing rotation order for this chore type
+        await db.run(
+            'DELETE FROM weekly_rotation_orders WHERE weekly_chore_type_id = ? AND family_id = ?',
+            [choreTypeId, familyId]
+        );
+        
+        // Insert new rotation order
+        for (let i = 0; i < newOrder.length; i++) {
+            await db.run(
+                'INSERT INTO weekly_rotation_orders (weekly_chore_type_id, user_id, family_id, rotation_order) VALUES (?, ?, ?, ?)',
+                [choreTypeId, newOrder[i], familyId, i]
+            );
+        }
+        
+        console.log(`Weekly chore rotation order updated for chore type ${choreTypeId} in family ${familyId}`);
+        return await getWeeklyChoreRotationOrder(choreTypeId, familyId);
+    } catch (error) {
+        console.error('Error updating weekly chore rotation order:', error);
+        throw error;
     }
-    
-    // Update the order (in a real app, this would be stored in database)
-    DISH_DUTY_ORDER.length = 0;
-    DISH_DUTY_ORDER.push(...newOrder);
-    
-    console.log(`Dish duty order updated to: ${DISH_DUTY_ORDER.join(' → ')}`);
-    return DISH_DUTY_ORDER;
+};
+
+// Legacy functions for backward compatibility
+const getDishDutyOrder = () => {
+    console.log('⚠️  getDishDutyOrder is deprecated - use getWeeklyChoreRotationOrder instead');
+    return ['Use new weekly chore system'];
+};
+
+const updateDishDutyOrder = (newOrder) => {
+    console.log('⚠️  updateDishDutyOrder is deprecated - use updateWeeklyChoreRotationOrder instead');
+    return newOrder;
 };
 
 module.exports = {
     assignDailyChores,
     rotateDishDuty,
+    rotateWeeklyChores,
     getCurrentDishDuty,
+    getCurrentWeeklyAssignments,
     getDailyAssignments,
     completeAssignment,
     getWeekStart,
     getWeekEnd,
     formatDate,
     getDishDutyOrder,
-    updateDishDutyOrder
+    updateDishDutyOrder,
+    getWeeklyChoreRotationOrder,
+    updateWeeklyChoreRotationOrder
 };

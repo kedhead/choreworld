@@ -37,7 +37,7 @@ const Dashboard = () => {
     try {
       const requests = [
         axios.get('/api/assignments/daily'),
-        axios.get('/api/assignments/dish-duty')
+        axios.get('/api/weekly-chores/assignments')
       ];
       
       // Add level stats request for kids
@@ -48,7 +48,10 @@ const Dashboard = () => {
       const responses = await Promise.all(requests);
       
       setAssignments(responses[0].data.assignments || []);
-      setDishDuty(responses[1].data.duty || null);
+      // For backward compatibility, set dishDuty to first weekly assignment that's "Dish Duty"
+      const weeklyAssignments = responses[1].data.assignments || [];
+      const dishDutyAssignment = weeklyAssignments.find(a => a.chore_type_name === 'Dish Duty');
+      setDishDuty(dishDutyAssignment || null);
       
       if (!isAdmin && responses[2]) {
         setLevelStats(responses[2].data.stats);
@@ -120,11 +123,11 @@ const Dashboard = () => {
 
   const manualRotate = async () => {
     try {
-      await axios.post('/api/assignments/dish-duty/rotate');
+      await axios.post('/api/weekly-chores/rotate');
       await fetchData();
-      toast.success('Dish duty rotated! 🍽️');
+      toast.success('Weekly chores rotated! 🏠');
     } catch (error) {
-      toast.error('Failed to rotate dish duty');
+      toast.error('Failed to rotate weekly chores');
     }
   };
 
@@ -238,7 +241,7 @@ const Dashboard = () => {
               className="btn-secondary flex items-center space-x-2"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Rotate Dish Duty</span>
+              <span>Rotate Weekly Chores</span>
             </button>
           </div>
         </div>

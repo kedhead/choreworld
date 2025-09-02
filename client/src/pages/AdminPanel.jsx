@@ -21,6 +21,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import FamilyManagement from '../components/FamilyManagement';
 import PaymentTracking from '../components/PaymentTracking';
+import WeeklyChoreManagement from '../components/WeeklyChoreManagement';
 
 const AdminPanel = () => {
   const { register } = useAuth();
@@ -227,7 +228,7 @@ const AdminPanel = () => {
     { id: 'chores', label: 'Manage Chores', icon: ListTodo, emoji: '📋' },
     { id: 'users', label: 'Manage Users', icon: Users, emoji: '👥' },
     { id: 'assign', label: 'Assign Chores', icon: Calendar, emoji: '📅' },
-    { id: 'dishes', label: 'Dish Duty Order', icon: Settings, emoji: '🍽️' },
+    { id: 'weekly', label: 'Weekly Chores', icon: Settings, emoji: '🏠' },
     { id: 'payments', label: 'Payment Tracking', icon: DollarSign, emoji: '💰' },
     { id: 'family', label: 'Family Settings', icon: Users, emoji: '🏠' },
     { id: 'stats', label: 'Statistics', icon: BarChart3, emoji: '📊' }
@@ -730,7 +731,14 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* Dish Duty Order Tab */}
+      {/* Weekly Chores Tab */}
+      {activeTab === 'weekly' && (
+        <div className="space-y-6">
+          <WeeklyChoreManagement />
+        </div>
+      )}
+
+      {/* Legacy Dish Duty Order Tab (will be removed) */}
       {activeTab === 'dishes' && (
         <div className="space-y-6">
           <div className="card">
