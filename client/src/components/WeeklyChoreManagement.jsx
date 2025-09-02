@@ -100,6 +100,17 @@ const WeeklyChoreManagement = () => {
     }
   };
 
+  const assignSpecificUser = async (choreTypeId, userId) => {
+    try {
+      await axios.post('/api/weekly-chores/assign', { choreTypeId, userId });
+      const kidName = familyKids.find(k => k.id === userId)?.display_name || 'Unknown';
+      toast.success(`Assigned to ${kidName}! 👍`);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to assign chore');
+    }
+  };
+
   const openRotationManager = async (choreType) => {
     try {
       const response = await axios.get(`/api/weekly-chores/types/${choreType.id}/rotation`);
@@ -208,6 +219,23 @@ const WeeklyChoreManagement = () => {
                     <h4 className="font-semibold text-blue-800">{assignment.chore_type_name}</h4>
                   </div>
                   <div className="flex space-x-1">
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          assignSpecificUser(assignment.weekly_chore_type_id, parseInt(e.target.value));
+                          e.target.value = '';
+                        }
+                      }}
+                      className="text-xs px-2 py-1 border rounded"
+                      title="Assign to specific person"
+                    >
+                      <option value="">Assign to...</option>
+                      {familyKids.map(kid => (
+                        <option key={kid.id} value={kid.id}>
+                          {kid.display_name}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => {
                         const choreType = choreTypes.find(ct => ct.id === assignment.weekly_chore_type_id);
@@ -221,7 +249,7 @@ const WeeklyChoreManagement = () => {
                     <button
                       onClick={() => rotateWeeklyChores(assignment.weekly_chore_type_id)}
                       className="text-blue-600 hover:text-blue-800"
-                      title="Rotate this chore now"
+                      title="Rotate to next person"
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>

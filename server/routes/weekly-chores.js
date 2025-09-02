@@ -192,6 +192,68 @@ router.post('/rotate/:choreTypeId?', authenticateToken, requireFamilyAdmin, asyn
     }
 });
 
+// Manually assign specific user to weekly chore (family admin only)
+router.post('/assign', authenticateToken, requireFamilyAdmin, async (req, res) => {
+    try {
+        const { choreTypeId, userId } = req.body;
+        const familyId = req.user.family_id;
+        
+        if (!choreTypeId || !userId) {
+            return res.status(400).json({ error: 'choreTypeId and userId are required' });
+        }
+        
+        // Verify chore type belongs to this family
+        const choreType = await db.get(
+            'SELECT * FROM weekly_chore_types WHERE id = ? AND family_id = ?',
+            [choreTypeId, familyId]
+        );
+        
+        if (!choreType) {
+            return res.status(404).json({ error: 'Weekly chore type not found' });
+        }
+        
+        // Verify user belongs to this family and is a kid
+        const user = await db.get(
+            'SELECT * FROM users WHERE id = ? AND family_id = ? AND role = ?',
+            [userId, familyId, 'kid']
+        );
+        
+        if (!user) {
+            return res.status(400).json({ error: 'User not found or not a kid in your family' });
+        }
+        
+        const weekStart = require('../services/scheduler').getWeekStart();
+        const weekEnd = require('../services/scheduler').getWeekEnd();
+        const weekStartStr = require('../services/scheduler').formatDate(weekStart);
+        const weekEndStr = require('../services/scheduler').formatDate(weekEnd);
+        
+        // Deactivate current assignment for this chore type
+        await db.run(
+            'UPDATE weekly_assignments SET is_active = 0 WHERE weekly_chore_type_id = ? AND family_id = ?',
+            [choreTypeId, familyId]
+        );
+        
+        // Create new assignment
+        await db.run(
+            'INSERT INTO weekly_assignments (weekly_chore_type_id, user_id, family_id, week_start, week_end, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+            [choreTypeId, userId, familyId, weekStartStr, weekEndStr, 1]
+        );
+        
+        res.json({ 
+            message: 'Weekly chore assigned successfully',
+            assignment: {
+                chore_type_name: choreType.name,
+                user_name: user.display_name,
+                week_start: weekStartStr,
+                week_end: weekEndStr
+            }
+        });
+    } catch (error) {
+        console.error('Manual weekly chore assignment error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Get rotation order for a weekly chore type (family admin only)
 router.get('/types/:id/rotation', authenticateToken, requireFamilyAdmin, async (req, res) => {
     try {

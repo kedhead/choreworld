@@ -207,23 +207,27 @@ const rotateWeeklyChores = async (familyId = null, choreTypeId = null) => {
                     continue;
                 }
 
-                // Get the last assigned user for this chore type to determine next in rotation
-                const lastAssignment = await db.get(
-                    'SELECT * FROM weekly_assignments WHERE weekly_chore_type_id = ? AND family_id = ? ORDER BY created_at DESC LIMIT 1',
+                // Get the currently active assignment for this chore type to determine next in rotation
+                const currentAssignment = await db.get(
+                    'SELECT * FROM weekly_assignments WHERE weekly_chore_type_id = ? AND family_id = ? AND is_active = 1 ORDER BY created_at DESC LIMIT 1',
                     [choreType.id, family.id]
                 );
 
                 let nextKidIndex = 0;
                 
-                if (lastAssignment) {
-                    // Find the index of the last assigned kid in our ordered list
-                    const lastKidIndex = orderedKids.findIndex(kid => kid.id === lastAssignment.user_id);
-                    if (lastKidIndex !== -1) {
-                        nextKidIndex = (lastKidIndex + 1) % orderedKids.length;
+                if (currentAssignment) {
+                    // Find the index of the currently assigned kid in our ordered list
+                    const currentKidIndex = orderedKids.findIndex(kid => kid.id === currentAssignment.user_id);
+                    console.log(`  Current assignment: ${currentAssignment.user_id}, found at index: ${currentKidIndex}`);
+                    console.log(`  Ordered kids: ${orderedKids.map(k => `${k.display_name}(${k.id})`).join(', ')}`);
+                    
+                    if (currentKidIndex !== -1) {
+                        nextKidIndex = (currentKidIndex + 1) % orderedKids.length;
                     }
                 }
 
                 const assignedKid = orderedKids[nextKidIndex];
+                console.log(`  Next kid index: ${nextKidIndex}, assigning to: ${assignedKid.display_name}`);
 
                 // Deactivate previous assignments for this chore type and family
                 await db.run(
