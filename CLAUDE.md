@@ -5,8 +5,8 @@ ChoreWorld is a family chore management system with multi-family support, paymen
 
 ## Current State (Latest Session)
 - **Branch**: main
-- **Last Commit**: 0993014 - "Fix chore assignment family_id issue causing assignments not to show"
-- **Status**: Fully functional with all major features implemented
+- **Last Commit**: 78b3301 - "Add manual weekly chore assignment and improve rotation debugging"
+- **Status**: Fully functional with enhanced flexible weekly chore system
 - **Deployment**: Railway (backend) + Netlify (frontend proxy)
 
 ## Architecture
@@ -40,23 +40,41 @@ ChoreWorld is a family chore management system with multi-family support, paymen
 
 ### 4. Core Chore System ✅
 - Daily chore assignments with family scoping
-- Dish duty rotation system
+- Flexible weekly chore assignment system (replaces hardcoded dish duty)
 - Bonus chores with 2x XP
 - Leveling system with experience points
 - Manual and automatic assignment systems
 
+### 5. Flexible Weekly Chore System ✅ (NEW)
+- Configurable weekly chore types per family (dish duty, trash duty, pet care, etc.)
+- Custom rotation orders per chore type
+- Multiple weekly chores running simultaneously
+- Manual assignment with dropdown for immediate corrections
+- Auto-migration from legacy dish duty system
+
 ## Recent Fixes Applied
 
-### Issue: Assigned chores not showing on kids' dashboards
+### Issue: Dish duty system not working and inflexible
+**Problem**: Hardcoded dish duty with specific names, rotation issues, 500 errors
+**Solution**: Complete rebuild as flexible weekly chore system
+- Replaced hardcoded dish duty with configurable weekly chore types
+- Added family-specific weekly chore management 
+- Created flexible rotation order system
+- Added manual assignment capabilities
+**Files Changed**: 
+- `server/database/migrate-weekly-chores.*` - New migration system
+- `server/routes/weekly-chores.js` - New API endpoints
+- `server/services/scheduler.js` - Flexible rotation logic
+- `client/src/components/WeeklyChoreManagement.jsx` - New management UI
+- `client/src/pages/AdminPanel.jsx` - Added Weekly Chores tab
+- `client/src/pages/Dashboard.jsx` - Updated to use new system
+
+### Previous Issue: Assigned chores not showing on kids' dashboards
 **Problem**: Manual chore assignments missing family_id in database
 **Solution**: 
 - Fixed manual assignment endpoint to include family_id
 - Added startup database fix for orphaned assignments
 - Enhanced migration to catch edge cases
-**Files Changed**: 
-- `server/routes/assignments.js` - Added family_id to INSERT/UPDATE
-- `server/database/database.js` - Added startup fix
-- `server/database/migrate-multi-family.js` - Enhanced migration
 
 ## Database Schema
 
@@ -67,6 +85,9 @@ ChoreWorld is a family chore management system with multi-family support, paymen
 - `daily_assignments` - Daily chore assignments with family_id
 - `weekly_payments` - Payment tracking per user per week
 - `family_invites` - Invitation system for joining families
+- `weekly_chore_types` - Family-configurable weekly chore definitions (NEW)
+- `weekly_assignments` - Weekly chore assignments replacing dish_duty (NEW)
+- `weekly_rotation_orders` - Configurable rotation order per chore type (NEW)
 
 ### Key Relationships
 - Users belong to families (family_id)
@@ -104,14 +125,26 @@ ChoreWorld is a family chore management system with multi-family support, paymen
 - `DELETE /api/payments/:id` - Remove payment record (family admin)
 - `GET /api/payments/history/:userId` - Payment history (family admin)
 
+### Weekly Chore Management (NEW)
+- `GET /api/weekly-chores/types` - List family's weekly chore types
+- `POST /api/weekly-chores/types` - Create weekly chore type (family admin)
+- `PUT /api/weekly-chores/types/:id` - Update weekly chore type (family admin)
+- `DELETE /api/weekly-chores/types/:id` - Delete weekly chore type (family admin)
+- `GET /api/weekly-chores/assignments` - Get current weekly assignments
+- `POST /api/weekly-chores/rotate/:choreTypeId?` - Rotate weekly chores (family admin)
+- `POST /api/weekly-chores/assign` - Manually assign chore to specific user (family admin)
+- `GET /api/weekly-chores/types/:id/rotation` - Get rotation order (family admin)
+- `PUT /api/weekly-chores/types/:id/rotation` - Update rotation order (family admin)
+
 ## Frontend Structure
 
 ### Key Components
 - `AdminPanel.jsx` - Main admin interface with tabbed sections
 - `PaymentTracking.jsx` - Weekly payment management UI
+- `WeeklyChoreManagement.jsx` - Flexible weekly chore configuration UI (NEW)
 - `FamilyManagement.jsx` - Family member and invite management
 - `FamilySetup.jsx` - Initial family creation/joining flow
-- `Dashboard.jsx` - Kid dashboard showing assignments
+- `Dashboard.jsx` - Kid dashboard showing assignments and weekly chores
 
 ### Contexts
 - `AuthContext.jsx` - Authentication and user state
@@ -178,6 +211,9 @@ ChoreWorld is a family chore management system with multi-family support, paymen
 - [ ] Payment tracking mark as paid/unpaid
 - [ ] Family invite codes and joining
 - [ ] Chore completion and XP system
+- [ ] Weekly chore type creation and management (NEW)
+- [ ] Weekly chore rotation and manual assignment (NEW)
+- [ ] Rotation order configuration and immediate application (NEW)
 
 ### Deployment Status
 - Railway: Backend API with auto-deployments from main branch
